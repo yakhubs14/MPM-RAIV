@@ -361,8 +361,14 @@
         // CLEAN THE URL (Remove whitespace, quotes)
         const url = rawUrl.trim().replace(/['"]+/g, '');
         logEvent("[FIREBASE] NEW LINK: " + url);
-        document.getElementById('cam-url').value = url;
-        connectCams(url);
+        // Only update if input is empty to avoid overwriting user typing
+        if(document.getElementById('cam-url').value === "") {
+            document.getElementById('cam-url').value = url;
+            connectCams(url);
+        } else {
+            // If user has a link, connect anyway
+            connectCams(url);
+        }
       } else {
         logEvent("[FIREBASE] WAITING FOR LINK...");
       }
@@ -395,7 +401,7 @@
     }
 
     window.connectCams = function(passedUrl = null) {
-      // Priority: Argument > Input Box > Default
+      // Priority: Argument > Input Box
       let url = passedUrl;
       if (!url) url = document.getElementById('cam-url').value;
       
@@ -514,10 +520,8 @@
             initMap(); initCharts(); logEvent("[SYSTEM] INITIALIZED"); 
             updateTime(); setInterval(updateTime, 1000);
             
-            // Try default
-            const DEFAULT_CAM_URL = "https://preceding-headlines-directories-clearance.trycloudflare.com";
-            document.getElementById('cam-url').value = DEFAULT_CAM_URL;
-            connectCams();
+            // REMOVED FORCED DEFAULT. We trust Firebase now.
+            // But if user pastes manually, use that.
         }, 1000); 
     }
     window.openData = () => document.getElementById('dataModal').style.display = 'block';
