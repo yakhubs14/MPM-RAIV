@@ -356,8 +356,10 @@
     // --- AUTO-DETECT CAMERA LINK FROM FIREBASE ---
     const camUrlRef = ref(db, 'cam_url');
     onValue(camUrlRef, (snapshot) => {
-      const url = snapshot.val();
-      if(url) {
+      const rawUrl = snapshot.val();
+      if(rawUrl) {
+        // CLEAN THE URL (Remove whitespace, quotes)
+        const url = rawUrl.trim().replace(/['"]+/g, '');
         logEvent("[FIREBASE] NEW LINK: " + url);
         document.getElementById('cam-url').value = url;
         connectCams(url);
@@ -393,17 +395,32 @@
     }
 
     window.connectCams = function(passedUrl = null) {
-      const inputUrl = document.getElementById('cam-url').value;
-      const url = passedUrl || inputUrl;
+      // Priority: Argument > Input Box > Default
+      let url = passedUrl;
+      if (!url) url = document.getElementById('cam-url').value;
       
       if(url && url.length > 5) {
-        document.getElementById('stream1').src = url + "/video1";
-        document.getElementById('stream2').src = url + "/video2";
-        document.getElementById('stream1').style.display = "block";
-        document.getElementById('nosig1').style.display = "none";
-        document.getElementById('stream2').style.display = "block";
-        document.getElementById('nosig2').style.display = "none";
-        logEvent("[SYSTEM] CAMERAS CONNECTED");
+        url = url.trim(); // Clean whitespace
+        
+        // Add timestamp to force reload image and prevent caching
+        const ts = new Date().getTime();
+        const video1 = url + "/video1?t=" + ts;
+        const video2 = url + "/video2?t=" + ts;
+
+        logEvent("[SYSTEM] CONNECTING TO: " + url);
+
+        const img1 = document.getElementById('stream1');
+        const img2 = document.getElementById('stream2');
+
+        img1.src = video1;
+        img2.src = video2;
+        
+        // Error handlers to show NO SIGNAL if link is bad
+        img1.onerror = function() { this.style.display='none'; document.getElementById('nosig1').style.display='block'; logEvent("[ERR] CAM 1 FAILED"); };
+        img2.onerror = function() { this.style.display='none'; document.getElementById('nosig2').style.display='block'; logEvent("[ERR] CAM 2 FAILED"); };
+        
+        img1.onload = function() { this.style.display='block'; document.getElementById('nosig1').style.display='none'; };
+        img2.onload = function() { this.style.display='block'; document.getElementById('nosig2').style.display='none'; };
       }
     }
 
