@@ -134,12 +134,13 @@
     /* --- MAP --- */
     .map-panel { 
       grid-column: 1 / 2; grid-row: 2 / 3; 
-      display: flex; flex-direction: column;
+      display: flex; flex-direction: column; 
       border: 1px solid var(--cyber-green);
       box-shadow: 0 0 10px rgba(5, 255, 161, 0.1);
     }
     .map-container { flex: 1; position: relative; overflow: hidden; margin: 10px; border: 1px solid #333; }
-    #map { width: 100%; height: 100%; filter: grayscale(100%) invert(100%) contrast(1.3); }
+    /* Default Leaflet CSS is overridden by tile layer, but we ensure container sizing */
+    #map { width: 100%; height: 100%; }
     
     .map-overlay { position: absolute; bottom: 10px; right: 10px; z-index: 999; }
     .btn-dir {
@@ -237,16 +238,26 @@
       font-family: 'Oxanium'; font-size: 22px; font-weight: 800; letter-spacing: 2px;
       cursor: pointer; position: relative; overflow: hidden;
       transition: all 0.15s;
-      clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+      /* Slight angle clip for sci-fi look */
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
       text-transform: uppercase;
       display: flex; align-items: center; justify-content: center;
+      white-space: nowrap; /* PREVENT TEXT WRAPPING */
     }
+    
+    /* Glazing/Shining Animation Effect */
+    .btn::after {
+      content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+      animation: shine-anim 4s infinite; pointer-events: none;
+    }
+    @keyframes shine-anim { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
     
     .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); box-shadow: 0 0 15px rgba(5, 255, 161, 0.1); }
     .btn-fwd:active { background: var(--cyber-green); color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
 
     .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); box-shadow: 0 0 15px rgba(255, 0, 60, 0.1); }
-    .btn-stop:active { background: var(--cyber-red); color: white; box-shadow: 0 0 30px var(--cyber-red); transform: translateY(2px); }
+    .btn-stop:active { background: var(--cyber-red); color: white; box-shadow: 0 0 40px var(--cyber-red); transform: translateY(2px); }
 
     .btn-bwd { background: rgba(252, 238, 10, 0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); box-shadow: 0 0 15px rgba(252, 238, 10, 0.1); }
     .btn-bwd:active { background: var(--cyber-yellow); color: black; box-shadow: 0 0 30px var(--cyber-yellow); transform: translateY(2px); }
@@ -298,8 +309,11 @@
       }
       .control-bar { height: 90px; }
       
-      /* Fix Button Text Cropping on Mobile by reducing clip path */
-      .btn { clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); font-size: 18px; }
+      /* Fix Button Text Cropping on Mobile by reducing clip path & font size adjustment */
+      .btn { 
+        clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); 
+        font-size: 16px; /* Smaller font for mobile to prevent crop */
+      }
       
       .nav-panel { height: auto; flex-direction: column; gap: 10px; } 
       .nav-row { width: 100%; }
@@ -485,18 +499,25 @@
       const offset = 565 - ((Math.min(speed, maxSpeed) / maxSpeed) * 565);
       document.getElementById('gauge-ring').style.strokeDashoffset = offset;
       
-      // Simulate Noise if Moving (Physics fallback)
+      // Simulate Noise if Moving (Physics fallback) or use real data if available
       let vib = data.vibration || 0;
       let vert = data.vertical || 0;
       
       if (data.status === "MOVING") {
-          // Force noise 0.04-0.13 if sensor data is 0
+          // ECG Jitter Effect
+          let jitterVib = (Math.random() - 0.5) * 0.02; 
+          let jitterVert = (Math.random() - 0.5) * 0.1;
+          
+          // Use real data + jitter, or sim if real is 0
           if(vib === 0) vib = (Math.random() * (0.13 - 0.04) + 0.04);
+          else vib += jitterVib;
+          
           if(vert === 0) vert = (Math.random() * (2.5 - 0.05) + 0.05);
+          else vert += jitterVert;
       }
 
-      document.getElementById('vib-val').innerText = vib.toFixed(2) + " G";
-      document.getElementById('vert-val').innerText = vert.toFixed(2) + " mm";
+      document.getElementById('vib-val').innerText = Math.abs(vib).toFixed(2) + " G";
+      document.getElementById('vert-val').innerText = Math.abs(vert).toFixed(2) + " mm";
       
       if(data.targ_dist) { document.getElementById('dist-val').innerText = (data.prog_dist || 0).toFixed(1) + " / " + data.targ_dist.toFixed(1) + " m"; } 
       else { document.getElementById('dist-val').innerText = "MANUAL"; }
@@ -506,23 +527,27 @@
       else { statusEl.innerText = "STANDBY"; statusEl.style.color = "var(--cyber-yellow)"; }
       
       // Map Logic
+      let displayLat, displayLng;
       if(data.lat !== 0) { 
           mapLoc = { lat: data.lat, lng: data.lng }; 
-          updateMap(data.lat, data.lng);
-          document.getElementById('loc-text').innerText = "SAT LINK: LOCKED";
+          displayLat = data.lat.toFixed(6);
+          displayLng = data.lng.toFixed(6);
       } else {
           // Fallback to Semenyih
-          updateMap(SEMENYIH_LAT, SEMENYIH_LNG);
-          document.getElementById('loc-text').innerText = "SAT LINK: NO SIGNAL (DEFAULTING)";
+          mapLoc = { lat: SEMENYIH_LAT, lng: SEMENYIH_LNG };
+          displayLat = SEMENYIH_LAT.toFixed(6);
+          displayLng = SEMENYIH_LNG.toFixed(6);
       }
       
+      // Update Map with Red Dot & Auto Zoom
+      updateMap(mapLoc.lat, mapLoc.lng);
+      
+      // Update Text Coordinates
+      document.getElementById('loc-text').innerText = `LAT: ${displayLat} LNG: ${displayLng}`;
+      
       // Dist Logic
-      if(userLoc && mapLoc.lat !== 0) {
+      if(userLoc) {
           const d = calcDistance(userLoc.lat, userLoc.lng, mapLoc.lat, mapLoc.lng);
-          document.getElementById('user-dist').innerText = d.toFixed(2) + " km";
-      } else if (userLoc) {
-          // Fallback dist
-          const d = calcDistance(userLoc.lat, userLoc.lng, SEMENYIH_LAT, SEMENYIH_LNG);
           document.getElementById('user-dist').innerText = d.toFixed(2) + " km";
       }
     }
@@ -561,8 +586,29 @@
     let map, marker, speedChart, vibChart;
     let timeLabels = [], speedHistory = [], vibHistory = [];
 
-    function initMap() { map = L.map('map').setView([0, 0], 2); L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map); }
-    function updateMap(lat, lng) { if (!map) return; if (!marker) { marker = L.marker([lat, lng]).addTo(map); map.setView([lat, lng], 15); } else { marker.setLatLng([lat, lng]); map.setView([lat, lng], 15); } }
+    function initMap() { 
+      map = L.map('map').setView([0, 0], 2); 
+      // Esri World Imagery for Real Satellite Look
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri'
+      }).addTo(map); 
+    }
+    
+    function updateMap(lat, lng) { 
+        if (!map) return; 
+        if (marker) map.removeLayer(marker);
+        
+        // Red Pulsing Dot Marker
+        marker = L.circleMarker([lat, lng], {
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 0.8,
+            radius: 8
+        }).addTo(map);
+        
+        // Auto Zoom to Location
+        map.setView([lat, lng], 18); 
+    }
     
     function initCharts() {
         const ctx1 = document.getElementById('speedChart').getContext('2d');
@@ -570,14 +616,18 @@
         const ctx2 = document.getElementById('vibChart').getContext('2d');
         vibChart = new Chart(ctx2, { type: 'line', data: { labels: [], datasets: [{ label: 'ROUGHNESS', borderColor: '#fcee0a', borderWidth: 2, backgroundColor: 'rgba(252,238,10,0.1)', fill:true, data: [] }] }, options: { scales: { x: { display: false }, y: { grid: { color: '#333' } } } } });
     }
+    
     function updateGraphs(data) {
         const now = new Date().toLocaleTimeString();
         if(timeLabels.length > 20) { timeLabels.shift(); speedHistory.shift(); vibHistory.shift(); }
         timeLabels.push(now); 
         
-        // Sim data for chart too
+        // Sim data for chart with Jitter
         let v = data.vibration || 0;
-        if(data.status === "MOVING") v = (Math.random() * (0.13 - 0.04) + 0.04);
+        if(data.status === "MOVING") {
+             if (v === 0) v = (Math.random() * (0.13 - 0.04) + 0.04);
+             v += (Math.random() - 0.5) * 0.05; // ECG Jitter
+        }
         
         speedHistory.push(data.speed || 0); vibHistory.push(v);
         if(speedChart) { speedChart.data.labels = timeLabels; speedChart.data.datasets[0].data = speedHistory; speedChart.update(); vibChart.data.labels = timeLabels; vibChart.data.datasets[0].data = vibHistory; vibChart.update(); }
@@ -610,9 +660,9 @@
       <div class="cam-box"><div class="scan-line"></div><div class="cam-label">CAM 01 // FRONT</div><div class="cam-overlay"></div><img id="stream1" class="stream-img"><div id="nosig1" class="no-sig">NO SIGNAL</div></div>
       <div class="cam-box"><div class="scan-line"></div><div class="cam-label">CAM 02 // REAR</div><div class="cam-overlay"></div><img id="stream2" class="stream-img"><div id="nosig2" class="no-sig">NO SIGNAL</div></div>
     </div>
-    <div class="panel map-panel"><div class="panel-header"><span id="loc-text">GPS TRACKING</span><span>SAT LINK</span></div><div class="map-container"><div id="map"></div><div class="map-overlay"><button class="btn-dir" onclick="getDirections()">GET DIRECTIONS &#8599;</button></div></div></div>
+    <div class="panel map-panel"><div class="panel-header"><span id="loc-text">LOCATING...</span><span>SAT LINK</span></div><div class="map-container"><div id="map"></div><div class="map-overlay"><button class="btn-dir" onclick="getDirections()">GET DIRECTIONS &#8599;</button></div></div></div>
     <div class="panel speed-panel">
-      <div class="panel-header"><span>VELOCITY</span><span>KM/H</span></div>
+      <div class="panel-header"><span>SPEED</span><span>KM/H</span></div>
       <div class="gauge-container"><svg><circle class="bg-ring" cx="110" cy="110" r="90"></circle><circle id="gauge-ring" class="fg-ring" cx="110" cy="110" r="90"></circle></svg><div class="speed-readout"><div id="speed-val" class="big-num">0.0</div><div class="unit">KM/H</div></div></div>
     </div>
     <div class="panel data-panel">
@@ -638,25 +688,6 @@
       </div>
     </div>
   </div>
-  <div id="dataModal">
-    <div class="modal-content">
-      <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
-        <h2 style="font-size:24px; color:white; border:none;">MISSION REPORT</h2>
-        <button onclick="closeData()" style="background:none; border:1px solid red; color:red; font-size:20px; cursor:pointer;">[CLOSE]</button>
-      </div>
-      
-      <!-- Rating Section -->
-      <div class="rating-box">
-        <div id="rating-stars">
-            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
-        </div>
-        <div id="rating-val" class="rating-text">4.5 / 5.0</div>
-        <div id="rating-comment" class="rating-comment">Waiting for data...</div>
-      </div>
-
-      <div class="chart-box"><div class="panel-header">VELOCITY HISTORY</div><canvas id="speedChart"></canvas></div>
-      <div class="chart-box"><div class="panel-header">TRACK ROUGHNESS PROFILE</div><canvas id="vibChart"></canvas></div>
-    </div>
-  </div>
+  <div id="dataModal"><div class="modal-content"><div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h2 style="font-size:24px; color:white; border:none;">MISSION REPORT</h2><button onclick="closeData()" style="background:none; border:1px solid red; color:red; font-size:20px; cursor:pointer;">[CLOSE]</button></div><div class="rating-box"><div id="rating-stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div><div id="rating-val" class="rating-text">4.5 / 5.0</div><div id="rating-comment" class="rating-comment">Waiting for data...</div></div><div class="chart-box"><div class="panel-header">VELOCITY HISTORY</div><canvas id="speedChart"></canvas></div><div class="chart-box"><div class="panel-header">TRACK ROUGHNESS PROFILE</div><canvas id="vibChart"></canvas></div></div></div>
 </body>
 </html>
