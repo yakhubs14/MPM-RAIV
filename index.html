@@ -9,328 +9,313 @@
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Cyberpunk Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   
   <style>
     :root {
-      --cyber-blue: #00f0ff;
-      --cyber-red: #ff003c;
-      --cyber-green: #05ffa1;
-      --cyber-yellow: #fcee0a;
-      --bg-dark: #020204;
-      --panel-bg: rgba(10, 15, 20, 0.9);
-      --border-glow: 0 0 15px rgba(0, 240, 255, 0.4);
+      --neon-cyan: #00f3ff;
+      --neon-red: #ff003c;
+      --neon-green: #0aff0a;
+      --neon-yellow: #fcee0a;
+      --bg-dark: #050505;
+      --glass: rgba(10, 20, 30, 0.75);
+      --scanline: rgba(0, 255, 255, 0.03);
     }
 
-    * { box-sizing: border-box; user-select: none; }
+    * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
 
-    /* Custom Scrollbar for Sci-Fi Feel */
-    ::-webkit-scrollbar { width: 10px; }
-    ::-webkit-scrollbar-track { background: #000; border-left: 1px solid #333; }
-    ::-webkit-scrollbar-thumb { background: var(--cyber-blue); border-radius: 0; }
-    ::-webkit-scrollbar-thumb:hover { background: white; }
+    /* --- CRT SCREEN EFFECT --- */
+    body::after {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+      z-index: 9999;
+      background-size: 100% 2px, 3px 100%;
+      pointer-events: none;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #000; }
+    ::-webkit-scrollbar-thumb { background: var(--neon-cyan); }
 
     body {
       margin: 0; padding: 0;
       background-color: var(--bg-dark);
+      /* Radar Grid Background */
       background-image: 
-        radial-gradient(circle at 50% 50%, #1a2a3a 0%, #000 80%),
-        linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
-      background-size: 100% 100%, 40px 40px, 40px 40px;
+        radial-gradient(circle at 50% 50%, rgba(0, 243, 255, 0.1) 0%, transparent 60%),
+        linear-gradient(0deg, transparent 24%, rgba(0, 243, 255, .05) 25%, rgba(0, 243, 255, .05) 26%, transparent 27%, transparent 74%, rgba(0, 243, 255, .05) 75%, rgba(0, 243, 255, .05) 76%, transparent 77%, transparent),
+        linear-gradient(90deg, transparent 24%, rgba(0, 243, 255, .05) 25%, rgba(0, 243, 255, .05) 26%, transparent 27%, transparent 74%, rgba(0, 243, 255, .05) 75%, rgba(0, 243, 255, .05) 76%, transparent 77%, transparent);
+      background-size: 100% 100%, 50px 50px, 50px 50px;
       font-family: 'Oxanium', cursive;
       color: white;
-      min-height: 100vh; /* Allow scrolling instead of squishing */
+      height: 100vh;
       display: flex; flex-direction: column;
-      overflow-y: auto; /* Enable vertical scroll */
-      overflow-x: hidden;
+      overflow: hidden;
     }
 
-    /* --- TOP HEADER --- */
+    /* --- HEADER (GLITCH EFFECT) --- */
     header {
       height: 60px;
-      background: linear-gradient(90deg, #000, #0a1520, #000);
-      border-bottom: 2px solid var(--cyber-blue);
+      background: rgba(0,0,0,0.8);
+      border-bottom: 2px solid var(--neon-cyan);
       display: flex; justify-content: space-between; align-items: center;
-      padding: 0 15px;
-      box-shadow: 0 5px 20px rgba(0, 240, 255, 0.2);
+      padding: 0 20px;
+      box-shadow: 0 0 20px var(--neon-cyan);
       z-index: 100;
-      flex-shrink: 0; /* Prevent header shrinking */
+      position: relative;
     }
-    .brand { font-size: 20px; font-weight: 800; color: var(--cyber-blue); text-shadow: 0 0 15px var(--cyber-blue); letter-spacing: 2px; }
-    .status-bar { display: flex; gap: 15px; font-size: 12px; color: #888; align-items: center; }
-    .time-box { background: rgba(0, 240, 255, 0.1); border: 1px solid var(--cyber-blue); padding: 5px 10px; color: var(--cyber-blue); font-weight: bold; box-shadow: 0 0 10px rgba(0,240,255,0.2); }
-    .live-dot { width: 8px; height: 8px; background: var(--cyber-red); border-radius: 50%; display: inline-block; animation: blink 1s infinite; margin-right: 5px; }
+    .brand { font-size: 24px; font-weight: 800; color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan); letter-spacing: 3px; animation: glitch 3s infinite; }
+    
+    @keyframes glitch {
+      0% { text-shadow: 2px 2px var(--neon-red), -2px -2px var(--neon-cyan); }
+      2% { text-shadow: -2px -2px var(--neon-red), 2px 2px var(--neon-cyan); }
+      4% { text-shadow: 0 0 10px var(--neon-cyan); }
+      100% { text-shadow: 0 0 10px var(--neon-cyan); }
+    }
+
+    .status-bar { display: flex; gap: 15px; font-size: 12px; color: #aaa; align-items: center; }
+    .time-box { background: rgba(0, 240, 255, 0.1); border: 1px solid var(--neon-cyan); padding: 5px 10px; color: var(--neon-cyan); font-family: 'Share Tech Mono', monospace; font-weight: bold; }
+    .live-dot { width: 8px; height: 8px; background: var(--neon-red); border-radius: 50%; display: inline-block; animation: blink 0.5s infinite alternate; margin-right: 5px; box-shadow: 0 0 10px var(--neon-red); }
 
     /* --- MAIN LAYOUT --- */
     .cockpit {
       flex: 1;
       display: grid;
-      /* Row 1: Video (Min 400px), Row 2: Data (Min 250px), Row 3: Controls (Fixed) */
-      grid-template-rows: minmax(400px, auto) minmax(250px, auto) auto; 
+      grid-template-rows: minmax(350px, auto) minmax(250px, auto) auto; 
       grid-template-columns: 320px 1fr 320px;
       gap: 15px;
       padding: 15px;
       width: 100%;
-      max-width: 1600px;
+      max-width: 1800px;
       margin: 0 auto;
+      overflow-y: auto;
     }
 
-    /* --- PANEL STYLING --- */
+    /* --- SCI-FI PANELS --- */
     .panel {
-      background: var(--panel-bg);
-      border: 1px solid rgba(255,255,255,0.15);
+      background: var(--glass);
+      border: 1px solid rgba(0, 243, 255, 0.2);
       position: relative;
-      clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
-      box-shadow: inset 0 0 30px rgba(0,0,0,0.9);
-      backdrop-filter: blur(8px);
-      transition: border 0.3s;
+      /* Advanced Clip Path for "Tech" Look */
+      clip-path: polygon(
+        0 0, 
+        calc(100% - 20px) 0, 100% 20px, 
+        100% 100%, 
+        20px 100%, 0 calc(100% - 20px)
+      );
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
     }
-    .panel:hover { border-color: rgba(0, 240, 255, 0.5); }
+    .panel:hover { border-color: var(--neon-cyan); box-shadow: 0 0 15px rgba(0, 243, 255, 0.1); }
     
-    .panel-header {
-      background: linear-gradient(90deg, rgba(0,240,255,0.1), transparent);
-      padding: 8px 15px;
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: var(--cyber-blue);
-      border-bottom: 1px solid rgba(0,240,255,0.2);
-      display: flex; justify-content: space-between;
-      text-transform: uppercase;
-      font-weight: 700;
+    /* Decoration Corner */
+    .panel::after {
+      content: ""; position: absolute; bottom: 0; left: 0; width: 30px; height: 30px;
+      border-bottom: 2px solid var(--neon-cyan); border-left: 2px solid var(--neon-cyan);
+      pointer-events: none;
     }
 
-    /* --- VIDEO FEEDS --- */
-    .video-section {
-      grid-column: 1 / -1; grid-row: 1 / 2;
-      display: flex; gap: 15px;
-      min-height: 400px; /* Ensure cameras have height */
+    .panel-header {
+      background: linear-gradient(90deg, rgba(0,243,255,0.1), transparent);
+      padding: 8px 15px;
+      font-size: 12px; letter-spacing: 2px;
+      color: var(--neon-cyan);
+      border-bottom: 1px solid rgba(0,243,255,0.2);
+      display: flex; justify-content: space-between;
+      text-transform: uppercase; font-weight: 800;
     }
+
+    /* --- VIDEO --- */
+    .video-section { grid-column: 1 / -1; grid-row: 1 / 2; display: flex; gap: 15px; min-height: 350px; }
     .cam-box {
-      flex: 1;
-      background: #000;
-      position: relative;
+      flex: 1; background: #000; position: relative;
       display: flex; justify-content: center; align-items: center;
-      border: 2px solid #222;
-      overflow: hidden;
-      box-shadow: 0 0 20px rgba(0,0,0,0.8);
+      border: 1px solid #333; overflow: hidden;
     }
+    /* Holographic Corner Markers */
+    .cam-box::before {
+      content: ""; position: absolute; top: 10px; left: 10px; width: 20px; height: 20px;
+      border-top: 2px solid var(--neon-red); border-left: 2px solid var(--neon-red); z-index: 10;
+    }
+    .cam-box::after {
+      content: ""; position: absolute; bottom: 10px; right: 10px; width: 20px; height: 20px;
+      border-bottom: 2px solid var(--neon-red); border-right: 2px solid var(--neon-red); z-index: 10;
+    }
+
     .stream-img { width: 100%; height: 100%; object-fit: contain; display: none; }
     .cam-label {
-      position: absolute; top: 10px; left: 10px;
-      background: rgba(0,0,0,0.8); color: var(--cyber-red);
-      padding: 4px 8px; font-weight: bold; border: 1px solid var(--cyber-red);
-      font-size: 10px; letter-spacing: 1px;
+      position: absolute; top: 15px; left: 40px;
+      background: rgba(0,0,0,0.7); color: var(--neon-red);
+      padding: 2px 8px; font-weight: bold; border: 1px solid var(--neon-red);
+      font-size: 10px; letter-spacing: 1px; z-index: 20;
     }
     .scan-line {
       position: absolute; top: 0; left: 0; width: 100%; height: 2px;
-      background: rgba(0, 240, 255, 0.8);
-      box-shadow: 0 0 15px var(--cyber-blue);
-      animation: scan 4s linear infinite;
-      z-index: 10;
+      background: rgba(0, 255, 255, 0.8);
+      box-shadow: 0 0 10px var(--neon-cyan);
+      animation: scan 3s linear infinite; z-index: 5;
     }
-    .no-sig { color: #444; font-size: 14px; letter-spacing: 3px; animation: textFlicker 3s infinite; }
-
-    /* --- MAP --- */
-    .map-panel { 
-      grid-column: 1 / 2; grid-row: 2 / 3; 
-      display: flex; flex-direction: column; 
-      border: 1px solid var(--cyber-green);
-      box-shadow: 0 0 10px rgba(5, 255, 161, 0.1);
-    }
-    .map-container { flex: 1; position: relative; overflow: hidden; margin: 10px; border: 1px solid #333; }
-    #map { width: 100%; height: 100%; filter: grayscale(100%) invert(100%) contrast(1.3); }
-    
-    .map-overlay { position: absolute; bottom: 10px; right: 10px; z-index: 999; }
-    .btn-dir {
-      background: var(--cyber-green); color: black; border: none;
-      padding: 8px 12px; font-weight: bold; font-family: 'Oxanium';
-      cursor: pointer; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
-      box-shadow: 0 0 10px var(--cyber-green);
-      transition: 0.2s;
-    }
-    .btn-dir:hover { transform: scale(1.05); filter: brightness(1.2); }
+    .no-sig { color: #333; font-size: 20px; letter-spacing: 5px; font-weight: 900; animation: pulse 2s infinite; }
 
     /* --- SPEEDOMETER --- */
     .speed-panel { 
       grid-column: 2 / 3; grid-row: 2 / 3; 
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      border-top: 4px solid var(--cyber-blue);
+      border-top: 2px solid var(--neon-cyan);
     }
     .gauge-container { position: relative; width: 220px; height: 220px; margin-top: 10px; }
-    svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-    circle { fill: none; stroke-width: 12; stroke-linecap: round; }
-    .bg-ring { stroke: #222; }
-    .fg-ring { stroke: var(--cyber-blue); stroke-dasharray: 565; stroke-dashoffset: 565; transition: stroke-dashoffset 0.3s; filter: drop-shadow(0 0 15px var(--cyber-blue)); }
+    svg { width: 100%; height: 100%; transform: rotate(-90deg); filter: drop-shadow(0 0 5px var(--neon-cyan)); }
+    circle { fill: none; stroke-width: 15; stroke-linecap: butt; }
+    .bg-ring { stroke: rgba(255,255,255,0.1); }
+    .fg-ring { stroke: var(--neon-cyan); stroke-dasharray: 565; stroke-dashoffset: 565; transition: stroke-dashoffset 0.2s ease-out; }
     
     .speed-readout {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       text-align: center;
     }
-    .big-num { font-size: 64px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 0 25px rgba(0, 240, 255, 0.6); }
-    .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; }
+    .big-num { font-size: 72px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 0 20px var(--neon-cyan); font-family: 'Share Tech Mono', monospace; }
+    .unit { font-size: 14px; color: var(--neon-cyan); letter-spacing: 4px; margin-top: 5px; }
 
     /* --- TELEMETRY --- */
     .data-panel { grid-column: 3 / 4; grid-row: 2 / 3; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
     .data-row { 
       display: flex; justify-content: space-between; align-items: center; 
-      background: rgba(255,255,255,0.02); padding: 8px 12px; border-left: 2px solid #444;
+      background: linear-gradient(90deg, rgba(255,255,255,0.05), transparent); 
+      padding: 10px 15px; border-left: 3px solid #444;
     }
-    .data-row span:last-child { font-weight: bold; font-size: 15px; }
-    .val-vib { color: var(--cyber-yellow); border-left-color: var(--cyber-yellow); }
-    .val-dist { color: var(--cyber-green); border-left-color: var(--cyber-green); }
+    .data-row span:last-child { font-weight: bold; font-size: 16px; font-family: 'Share Tech Mono'; }
+    .val-vib { color: var(--neon-yellow); border-left-color: var(--neon-yellow); }
+    .val-dist { color: var(--neon-green); border-left-color: var(--neon-green); }
     
     .terminal {
       flex: 1; background: #000; border: 1px solid #333; padding: 10px;
-      font-family: monospace; font-size: 10px; color: var(--cyber-green);
+      font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--neon-green);
       overflow-y: hidden; opacity: 0.9;
-      box-shadow: inset 0 0 10px rgba(0,255,0,0.1);
+      box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.1);
     }
+
+    /* --- MAP --- */
+    .map-panel { grid-column: 1 / 2; grid-row: 2 / 3; display: flex; flex-direction: column; border: 1px solid var(--neon-green); }
+    #map { flex: 1; filter: grayscale(100%) invert(100%) contrast(1.2) hue-rotate(180deg); }
+    .map-overlay { position: absolute; bottom: 10px; right: 10px; z-index: 999; }
+    .btn-dir {
+      background: var(--neon-green); color: black; border: none; padding: 8px 12px; font-weight: bold; 
+      cursor: pointer; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
+      box-shadow: 0 0 15px var(--neon-green); transition: 0.2s;
+    }
+    .btn-dir:hover { transform: scale(1.1); filter: brightness(1.2); }
 
     /* --- BOTTOM CONTROLS --- */
     .control-container {
       grid-column: 1 / -1; grid-row: 3 / 4;
-      display: flex; gap: 15px;
-      padding-bottom: 20px;
+      display: flex; gap: 15px; padding-bottom: 20px;
     }
 
-    /* NAV SETTINGS (Left) */
+    /* NAV SETTINGS */
     .nav-panel {
       flex: 1.2;
-      background: rgba(0,0,0,0.6);
-      border: 1px solid var(--cyber-blue);
-      padding: 10px;
+      background: rgba(0,0,0,0.8);
+      border: 1px solid var(--neon-cyan);
+      padding: 15px;
       display: flex; flex-direction: column; justify-content: space-between;
       clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 20px);
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
     }
-    
-    .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; font-size: 12px; }
+    .nav-row { display: flex; align-items: center; gap: 10px; color: var(--neon-cyan); font-weight: bold; font-size: 12px; }
     select {
-      background: #000; color: white; border: 1px solid var(--cyber-blue);
-      padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none;
+      background: #050505; color: white; border: 1px solid var(--neon-cyan);
+      padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none; text-transform: uppercase;
     }
 
-    /* Expandable Cam Link */
-    #cam-config-area { display: none; margin-top: 5px; animation: slideDown 0.3s ease; }
-    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    
-    input[type=text] {
-      background: #111; color: var(--cyber-red); border: 1px solid var(--cyber-red);
-      padding: 5px; font-family: 'Oxanium'; font-size: 12px; width: 100%; outline: none;
-    }
-
-    /* SLIDER STYLING - Improved for Mobile */
-    .slider-container { 
-      width: 100%; display: flex; align-items: center; gap: 10px; 
-      opacity: 0.3; transition: 0.3s; pointer-events: none; 
-      margin-top: 5px;
-    }
+    /* SLIDER (Big Touch Target) */
+    .slider-container { width: 100%; display: flex; align-items: center; gap: 10px; opacity: 0.3; pointer-events: none; margin-top: 5px; }
     .slider-active { opacity: 1; pointer-events: auto; }
-    
-    input[type=range] { 
-      flex: 1; -webkit-appearance: none; height: 10px; background: #222; outline: none; border-radius: 5px; border: 1px solid #444; 
-    }
+    input[type=range] { flex: 1; -webkit-appearance: none; height: 8px; background: #333; outline: none; border-radius: 4px; }
     input[type=range]::-webkit-slider-thumb { 
       -webkit-appearance: none; width: 24px; height: 24px; 
-      background: var(--cyber-blue); cursor: pointer; border-radius: 50%; 
-      box-shadow: 0 0 15px var(--cyber-blue); border: 2px solid white;
+      background: var(--neon-cyan); cursor: pointer; border-radius: 0; 
+      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+      box-shadow: 0 0 15px var(--neon-cyan); transform: scale(1.5); /* Big for mobile */
     }
-    .slider-val { 
-      width: 80px; text-align: right; color: var(--cyber-blue); 
-      font-weight: bold; font-size: 18px; 
-      background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 4px;
-    }
+    .slider-val { width: 80px; text-align: right; color: var(--neon-cyan); font-weight: bold; font-size: 20px; font-family: 'Share Tech Mono'; }
 
-    /* BUTTONS (Right) */
+    /* CAM CONFIG */
+    #cam-config-area { display: none; margin-top: 5px; animation: slideDown 0.3s ease; }
+    input[type=text] { background: #111; color: var(--neon-red); border: 1px solid var(--neon-red); padding: 8px; width: 100%; outline: none; font-family: 'Share Tech Mono'; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* BUTTONS */
     .control-bar { flex: 2; display: flex; gap: 10px; }
     .btn {
       flex: 1; border: none; outline: none;
-      font-family: 'Oxanium'; font-size: 22px; font-weight: 800; letter-spacing: 2px;
+      font-family: 'Oxanium'; font-weight: 800; letter-spacing: 2px;
       cursor: pointer; position: relative; overflow: hidden;
-      transition: all 0.15s;
+      transition: all 0.1s;
       clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
       text-transform: uppercase;
       display: flex; align-items: center; justify-content: center;
+      /* Mobile text sizing to prevent crop */
+      font-size: clamp(14px, 2vw, 24px); 
     }
     
-    .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); box-shadow: 0 0 15px rgba(5, 255, 161, 0.1); }
-    .btn-fwd:active { background: var(--cyber-green); color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
+    .btn-fwd { background: rgba(5, 255, 161, 0.1); color: var(--neon-green); border: 2px solid var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
+    .btn-fwd:active { background: white; color: black; box-shadow: 0 0 50px var(--neon-green); }
 
-    .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); box-shadow: 0 0 15px rgba(255, 0, 60, 0.1); }
-    .btn-stop:active { background: var(--cyber-red); color: white; box-shadow: 0 0 30px var(--cyber-red); transform: translateY(2px); }
+    .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.1); color: var(--neon-red); border: 2px solid var(--neon-red); text-shadow: 0 0 10px var(--neon-red); }
+    .btn-stop:active { background: white; color: black; box-shadow: 0 0 50px var(--neon-red); }
 
-    .btn-bwd { background: rgba(252, 238, 10, 0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); box-shadow: 0 0 15px rgba(252, 238, 10, 0.1); }
-    .btn-bwd:active { background: var(--cyber-yellow); color: black; box-shadow: 0 0 30px var(--cyber-yellow); transform: translateY(2px); }
+    .btn-bwd { background: rgba(252, 238, 10, 0.1); color: var(--neon-yellow); border: 2px solid var(--neon-yellow); text-shadow: 0 0 10px var(--neon-yellow); }
+    .btn-bwd:active { background: white; color: black; box-shadow: 0 0 50px var(--neon-yellow); }
 
-    .btn-config { 
-        background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); 
-        font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px;
-    }
-    .btn-config:hover { background: var(--cyber-red); color: white; }
+    .btn-config { background: transparent; border: 1px solid var(--neon-red); color: var(--neon-red); font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s; }
+    .btn-config:hover { background: var(--neon-red); color: black; font-weight: bold; }
 
-    .btn-data { flex: 0.4; background: rgba(0, 240, 255, 0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
-    .btn-data:hover { background: var(--cyber-blue); color: black; }
+    .btn-data { flex: 0.4; background: rgba(0, 240, 255, 0.1); color: var(--neon-cyan); border: 1px solid var(--neon-cyan); font-size: 14px; }
+    .btn-data:hover { background: var(--neon-cyan); color: black; }
 
-    /* --- RESPONSIVE MEDIA QUERIES --- */
+    /* --- RESPONSIVE ADJUSTMENTS --- */
+    @media (min-width: 1025px) { .cockpit { grid-template-columns: 320px 1fr 320px; grid-template-rows: auto auto auto; } }
     
-    /* Laptop/Desktop - Keep 3 Columns but allow resizing */
-    @media (min-width: 1025px) {
-      .cockpit {
-        grid-template-columns: 320px 1fr 320px;
-        grid-template-rows: auto auto auto;
-      }
-    }
-
-    /* Tablet - 2 Column Layout */
     @media (max-width: 1024px) { 
-      .cockpit { 
-        grid-template-columns: 1fr 1fr; 
-        grid-template-rows: auto auto auto auto;
-      }
+      .cockpit { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto; }
       .video-section { grid-column: 1 / -1; grid-row: 1; height: 350px; }
       .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 250px; }
       .data-panel { grid-column: 2 / 3; grid-row: 2; height: 250px; }
       .map-panel { grid-column: 1 / -1; grid-row: 3; height: 300px; }
       .control-container { grid-column: 1 / -1; grid-row: 4; flex-direction: column; height: auto; }
-      .nav-panel { height: auto; padding: 15px; } 
-      .control-bar { height: 90px; }
+      .nav-panel { height: auto; padding: 15px; } .control-bar { height: 100px; }
     }
 
-    /* Mobile - Stack Everything */
     @media (max-width: 600px) { 
-      .cockpit { 
-        display: flex; flex-direction: column; 
-        height: auto; gap: 20px; padding-bottom: 20px; 
-      }
+      .cockpit { display: flex; flex-direction: column; height: auto; padding-bottom: 20px; }
       .video-section { flex-direction: column; height: auto; } 
-      .cam-box { height: 250px; }
+      .cam-box { height: 250px; } 
       .map-panel { height: 250px; }
       
       .control-container { 
-        position: relative; /* Not fixed, scrolls with page */
-        width: 100%; 
-        background: transparent; border-top: none;
-        padding: 0; z-index: 1; flex-direction: column; gap: 10px;
-        box-shadow: none;
+        position: relative; width: 100%; background: transparent; border-top: none;
+        padding: 0; z-index: 1; flex-direction: column; gap: 10px; box-shadow: none;
       }
-      .control-bar { height: 80px; }
+      .control-bar { height: 90px; }
+      /* Fix button text cropping by reducing clip-path on mobile */
+      .btn { clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
       .nav-panel { height: auto; flex-direction: row; flex-wrap: wrap; }
       .nav-row { width: 100%; }
-      
-      /* Make slider big on mobile */
-      input[type=range]::-webkit-slider-thumb { width: 30px; height: 30px; }
-      .slider-val { font-size: 20px; width: auto; }
     }
 
     /* Modal */
     #dataModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; padding: 20px; overflow-y: auto; }
-    .modal-content { max-width: 800px; margin: 40px auto; color: white; border: 1px solid var(--cyber-blue); padding: 20px; background: #111; box-shadow: 0 0 30px var(--cyber-blue); }
+    .modal-content { max-width: 800px; margin: 40px auto; color: white; border: 1px solid var(--neon-cyan); padding: 20px; background: #111; box-shadow: 0 0 50px var(--neon-cyan); }
     .chart-box { background: #000; border: 1px solid #333; padding: 10px; margin-bottom: 20px; }
 
     @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
-    @keyframes blink { 50% { opacity: 0; } }
+    @keyframes blink { 0% { opacity: 1; } 100% { opacity: 0.3; } }
+    @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
     @keyframes textFlicker { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-
   </style>
 
   <script type="module">
@@ -353,27 +338,24 @@
 
     let navMode = "hold"; let sliderValue = 0.5; let mapLoc = { lat: 0, lng: 0 };
 
-    // --- AUTO-DETECT CAMERA LINK FROM FIREBASE ---
+    // --- AUTO-DETECT CAMERA LINK ---
     const camUrlRef = ref(db, 'cam_url');
     onValue(camUrlRef, (snapshot) => {
       const rawUrl = snapshot.val();
       if(rawUrl) {
-        // CLEAN THE URL (Remove whitespace, quotes)
         const url = rawUrl.trim().replace(/['"]+/g, '');
-        logEvent("[FIREBASE] NEW LINK: " + url);
-        // Only update if input is empty to avoid overwriting user typing
+        logEvent("[SYS] LINK RECV: " + url.substring(8, 25) + "...");
         if(document.getElementById('cam-url').value === "") {
             document.getElementById('cam-url').value = url;
             connectCams(url);
         } else {
-            // If user has a link, connect anyway
             connectCams(url);
         }
       } else {
-        logEvent("[FIREBASE] WAITING FOR LINK...");
+        logEvent("[SYS] WAITING FOR LINK...");
       }
     }, (error) => {
-        logEvent("[FIREBASE] ERROR: " + error.message);
+        logEvent("[ERR] FIREBASE: " + error.message);
     });
 
     window.updateNavMode = function() {
@@ -401,19 +383,16 @@
     }
 
     window.connectCams = function(passedUrl = null) {
-      // Priority: Argument > Input Box
       let url = passedUrl;
       if (!url) url = document.getElementById('cam-url').value;
       
       if(url && url.length > 5) {
-        url = url.trim(); // Clean whitespace
-        
-        // Add timestamp to force reload image and prevent caching
+        url = url.trim();
         const ts = new Date().getTime();
         const video1 = url + "/video1?t=" + ts;
         const video2 = url + "/video2?t=" + ts;
 
-        logEvent("[SYSTEM] CONNECTING TO: " + url);
+        logEvent("[VID] CONNECTING STREAMS...");
 
         const img1 = document.getElementById('stream1');
         const img2 = document.getElementById('stream2');
@@ -421,9 +400,8 @@
         img1.src = video1;
         img2.src = video2;
         
-        // Error handlers to show NO SIGNAL if link is bad
-        img1.onerror = function() { this.style.display='none'; document.getElementById('nosig1').style.display='block'; logEvent("[ERR] CAM 1 FAILED"); };
-        img2.onerror = function() { this.style.display='none'; document.getElementById('nosig2').style.display='block'; logEvent("[ERR] CAM 2 FAILED"); };
+        img1.onerror = function() { this.style.display='none'; document.getElementById('nosig1').style.display='flex'; };
+        img2.onerror = function() { this.style.display='none'; document.getElementById('nosig2').style.display='flex'; };
         
         img1.onload = function() { this.style.display='block'; document.getElementById('nosig1').style.display='none'; };
         img2.onload = function() { this.style.display='block'; document.getElementById('nosig2').style.display='none'; };
@@ -443,7 +421,7 @@
         if (navMode === "km") distMeters = sliderValue * 1000;
         let prefix = (dir === "FORWARD") ? "FWD_" : "BWD_";
         sendCommand(prefix + distMeters);
-        logEvent(`[NAV] AUTO: ${distMeters}m`);
+        logEvent(`[NAV] AUTO-PILOT: ${distMeters}m`);
       }
     }
 
@@ -476,8 +454,8 @@
       else { document.getElementById('dist-val').innerText = "MANUAL"; }
 
       const statusEl = document.getElementById('sys-status');
-      if(data.status === "MOVING") { statusEl.innerText = "MOVING"; statusEl.style.color = "var(--cyber-green)"; } 
-      else { statusEl.innerText = "STANDBY"; statusEl.style.color = "var(--cyber-yellow)"; }
+      if(data.status === "MOVING") { statusEl.innerText = "MOVING"; statusEl.style.color = "var(--neon-green)"; } 
+      else { statusEl.innerText = "STANDBY"; statusEl.style.color = "var(--neon-yellow)"; }
       
       if(data.lat !== 0) { mapLoc = { lat: data.lat, lng: data.lng }; updateMap(data.lat, data.lng); }
     }
@@ -520,8 +498,12 @@
             initMap(); initCharts(); logEvent("[SYSTEM] INITIALIZED"); 
             updateTime(); setInterval(updateTime, 1000);
             
-            // REMOVED FORCED DEFAULT. We trust Firebase now.
-            // But if user pastes manually, use that.
+            // Try default if exists (Current logic trusts Firebase primarily)
+            const DEFAULT_CAM_URL = "https://preceding-headlines-directories-clearance.trycloudflare.com";
+            if(document.getElementById('cam-url').value === "") {
+               // document.getElementById('cam-url').value = DEFAULT_CAM_URL;
+               // connectCams(DEFAULT_CAM_URL);
+            }
         }, 1000); 
     }
     window.openData = () => document.getElementById('dataModal').style.display = 'block';
@@ -531,7 +513,7 @@
 <body>
   <header>
     <div class="brand">MPM-RAIV <span style="font-size:12px; color:white; opacity:0.7;">// COMMAND</span></div>
-    <div class="status-bar"><div class="time-box" id="kl-time">MYT --:--:--</div><div class="status-item"><span class="live-dot"></span> <b>LIVE</b></div><div class="status-item">SYS: <b id="sys-status" style="color:var(--cyber-yellow)">INIT</b></div></div>
+    <div class="status-bar"><div class="time-box" id="kl-time">MYT --:--:--</div><div class="status-item"><span class="live-dot"></span> <b>LIVE</b></div><div class="status-item">SYS: <b id="sys-status" style="color:var(--neon-yellow)">INIT</b></div></div>
   </header>
   <div class="cockpit">
     <div class="video-section">
@@ -555,7 +537,7 @@
         <div class="nav-row"><label>NAV MODE:</label><select id="move-mode" onchange="updateNavMode()"><option value="hold">AUTO HOLD (MANUAL)</option><option value="meters">METERS (AUTO)</option><option value="km">KILOMETERS (AUTO)</option></select></div>
         <div class="nav-row slider-container" id="slider-cont"><label>DIST:</label><input type="range" id="dist-slider" oninput="updateSlider(this.value)"><div id="slider-val" class="slider-val">N/A</div></div>
         <button class="btn-config" onclick="toggleCamConfig()">CONFIGURE LINK +</button>
-        <div id="cam-config-area"><input type="text" id="cam-url" placeholder="Paste Cloudflare URL..."><button onclick="connectCams()" style="width:100%; margin-top:5px; background:var(--cyber-blue); border:none; color:black; font-weight:bold; cursor:pointer;">CONNECT</button></div>
+        <div id="cam-config-area"><input type="text" id="cam-url" placeholder="Paste Cloudflare URL..."><button onclick="connectCams()" style="width:100%; margin-top:5px; background:var(--neon-cyan); border:none; color:black; font-weight:bold; cursor:pointer;">CONNECT</button></div>
       </div>
       <div class="control-bar">
         <button class="btn btn-fwd" onmousedown="handlePress('FORWARD')" onmouseup="handleRelease()" ontouchstart="handlePress('FORWARD')" ontouchend="handleRelease()">FORWARD</button>
