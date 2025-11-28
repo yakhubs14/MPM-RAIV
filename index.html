@@ -337,7 +337,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    // --- CONFIGURATION ---
     const firebaseConfig = {
       apiKey: "AIzaSyD69TabKnrT2AnF3ck6B1gHx5BlVNwYmXs",
       authDomain: "mpm-raiv.firebaseapp.com",
@@ -352,30 +351,23 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // --- VARIABLES ---
-    let navMode = "hold"; 
-    let sliderValue = 0.5;
-    let mapLoc = { lat: 0, lng: 0 };
-    
-    // DEFAULT URL (Cloudflare)
-    const DEFAULT_CAM_URL = "https://preceding-headlines-directories-clearance.trycloudflare.com";
+    let navMode = "hold"; let sliderValue = 0.5; let mapLoc = { lat: 0, lng: 0 };
 
-    // --- TIME FUNCTION (Malaysia) ---
-    function updateTime() {
-      const options = { timeZone: 'Asia/Kuala_Lumpur', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
-      const timeString = new Date().toLocaleTimeString('en-US', options);
-      document.getElementById('kl-time').innerText = "MYT " + timeString;
-    }
-    setInterval(updateTime, 1000);
+    // --- AUTO-DETECT CAMERA LINK FROM FIREBASE ---
+    const camUrlRef = ref(db, 'cam_url');
+    onValue(camUrlRef, (snapshot) => {
+      const url = snapshot.val();
+      if(url) {
+        logEvent("[FIREBASE] NEW LINK: " + url);
+        document.getElementById('cam-url').value = url;
+        connectCams(url);
+      } else {
+        logEvent("[FIREBASE] WAITING FOR LINK...");
+      }
+    }, (error) => {
+        logEvent("[FIREBASE] ERROR: " + error.message);
+    });
 
-    // --- TOGGLE CAM CONFIG ---
-    window.toggleCamConfig = function() {
-        const area = document.getElementById('cam-config-area');
-        if(area.style.display === 'block') area.style.display = 'none';
-        else area.style.display = 'block';
-    }
-
-    // --- NAV LOGIC ---
     window.updateNavMode = function() {
       navMode = document.getElementById('move-mode').value;
       const sliderCont = document.getElementById('slider-cont');
@@ -387,15 +379,10 @@
         valDisp.innerText = "N/A";
       } else {
         sliderCont.classList.add('slider-active');
-        if (navMode === "meters") {
-          slider.min = "0.5"; slider.max = "10"; slider.step = "0.5"; slider.value = "0.5";
-          valDisp.innerText = "0.5 m";
-        } else if (navMode === "km") {
-          slider.min = "1"; slider.max = "20"; slider.step = "1"; slider.value = "1";
-          valDisp.innerText = "1 km";
-        }
+        if (navMode === "meters") { slider.min = "0.5"; slider.max = "10"; slider.step = "0.5"; slider.value = "0.5"; valDisp.innerText = "0.5 m"; } 
+        else if (navMode === "km") { slider.min = "1"; slider.max = "20"; slider.step = "1"; slider.value = "1"; valDisp.innerText = "1 km"; }
         sliderValue = parseFloat(slider.value);
-        updateSlider(slider.value); // Ensure label updates immediately
+        updateSlider(slider.value);
       }
     }
 
@@ -405,46 +392,40 @@
       document.getElementById('slider-val').innerText = sliderValue + " " + unit;
     }
 
-    // --- CONNECT CAMERAS ---
-    window.connectCams = function() {
+    window.connectCams = function(passedUrl = null) {
       const inputUrl = document.getElementById('cam-url').value;
-      const url = (inputUrl.length > 5) ? inputUrl : DEFAULT_CAM_URL;
+      const url = passedUrl || inputUrl;
       
-      document.getElementById('stream1').src = url + "/video1";
-      document.getElementById('stream2').src = url + "/video2";
-      
-      document.getElementById('stream1').style.display = "block";
-      document.getElementById('nosig1').style.display = "none";
-      document.getElementById('stream2').style.display = "block";
-      document.getElementById('nosig2').style.display = "none";
-      
-      logEvent("CONNECTED TO: " + url);
-      // Hide config after connect
-      document.getElementById('cam-config-area').style.display = 'none';
+      if(url && url.length > 5) {
+        document.getElementById('stream1').src = url + "/video1";
+        document.getElementById('stream2').src = url + "/video2";
+        document.getElementById('stream1').style.display = "block";
+        document.getElementById('nosig1').style.display = "none";
+        document.getElementById('stream2').style.display = "block";
+        document.getElementById('nosig2').style.display = "none";
+        logEvent("[SYSTEM] CAMERAS CONNECTED");
+      }
     }
 
-    // --- COMMANDS ---
+    window.toggleCamConfig = function() {
+        const area = document.getElementById('cam-config-area');
+        area.style.display = area.style.display === 'block' ? 'none' : 'block';
+    }
+
     window.handlePress = function(dir) {
-      if (navMode === "hold") {
-        sendCommand(dir);
-      } else {
+      if (navMode === "hold") { sendCommand(dir); } 
+      else {
         let distMeters = 0;
         if (navMode === "meters") distMeters = sliderValue;
         if (navMode === "km") distMeters = sliderValue * 1000;
         let prefix = (dir === "FORWARD") ? "FWD_" : "BWD_";
         sendCommand(prefix + distMeters);
-        logEvent(`AUTO NAV: ${distMeters}m`);
+        logEvent(`[NAV] AUTO: ${distMeters}m`);
       }
     }
 
-    window.handleRelease = function() {
-      if (navMode === "hold") sendCommand('STOP');
-    }
-
-    window.sendCommand = function(cmd) {
-      set(ref(db, 'command'), cmd);
-      logEvent(`CMD SENT: ${cmd}`);
-    }
+    window.handleRelease = function() { if (navMode === "hold") sendCommand('STOP'); }
+    window.sendCommand = function(cmd) { set(ref(db, 'command'), cmd); logEvent(`[CMD] SENT: ${cmd}`); }
 
     // --- DIRECTIONS ---
     window.getDirections = function() {
@@ -455,49 +436,27 @@
         }
     }
 
-    // --- TELEMETRY ---
     const telemetryRef = ref(db, 'telemetry');
     onValue(telemetryRef, (snapshot) => {
       const data = snapshot.val();
-      if(data) {
-        updateUI(data);
-        updateGraphs(data);
-      }
+      if(data) { updateUI(data); updateGraphs(data); }
     });
 
     function updateUI(data) {
-      // Speed
       const speed = data.speed || 0;
       document.getElementById('speed-val').innerText = speed.toFixed(1);
       const maxSpeed = 20;
       const offset = 565 - ((Math.min(speed, maxSpeed) / maxSpeed) * 565);
       document.getElementById('gauge-ring').style.strokeDashoffset = offset;
-
-      // Data
-      document.getElementById('vib-val').innerText = (data.vibration || 0).toFixed(2) + " G";
-      document.getElementById('vert-val').innerText = (data.vertical || 0).toFixed(2) + " G";
       
-      if(data.targ_dist) {
-         document.getElementById('dist-val').innerText = (data.prog_dist || 0).toFixed(1) + " / " + data.targ_dist.toFixed(1) + " m";
-      } else {
-         document.getElementById('dist-val').innerText = "MANUAL";
-      }
+      if(data.targ_dist) { document.getElementById('dist-val').innerText = (data.prog_dist || 0).toFixed(1) + " / " + data.targ_dist.toFixed(1) + " m"; } 
+      else { document.getElementById('dist-val').innerText = "MANUAL"; }
 
-      // Status
       const statusEl = document.getElementById('sys-status');
-      if(data.status === "MOVING") {
-        statusEl.innerText = "ACTIVE // MOVING";
-        statusEl.style.color = "var(--cyber-green)";
-      } else {
-        statusEl.innerText = "STANDBY";
-        statusEl.style.color = "var(--cyber-yellow)";
-      }
-
-      // Map
-      if(data.lat !== 0) {
-          mapLoc = { lat: data.lat, lng: data.lng };
-          updateMap(data.lat, data.lng);
-      }
+      if(data.status === "MOVING") { statusEl.innerText = "MOVING"; statusEl.style.color = "var(--cyber-green)"; } 
+      else { statusEl.innerText = "STANDBY"; statusEl.style.color = "var(--cyber-yellow)"; }
+      
+      if(data.lat !== 0) { mapLoc = { lat: data.lat, lng: data.lng }; updateMap(data.lat, data.lng); }
     }
 
     function logEvent(msg) {
@@ -506,126 +465,63 @@
       const line = document.createElement('div');
       line.innerText = `[${time}] > ${msg}`;
       term.prepend(line);
-      if(term.children.length > 6) term.lastChild.remove();
+      if(term.children.length > 20) term.lastChild.remove();
     }
 
-    // --- MAP & CHARTS ---
     let map, marker, speedChart, vibChart;
     let timeLabels = [], speedHistory = [], vibHistory = [];
 
-    function initMap() {
-      map = L.map('map').setView([0, 0], 2);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-    }
-    function updateMap(lat, lng) {
-        if (!map) return;
-        if (!marker) {
-            marker = L.marker([lat, lng]).addTo(map);
-            map.setView([lat, lng], 16);
-        } else {
-            marker.setLatLng([lat, lng]);
-            map.setView([lat, lng], 16);
-        }
-    }
-
+    function initMap() { map = L.map('map').setView([0, 0], 2); L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map); }
+    function updateMap(lat, lng) { if (!map) return; if (!marker) { marker = L.marker([lat, lng]).addTo(map); map.setView([lat, lng], 16); } else { marker.setLatLng([lat, lng]); map.setView([lat, lng], 16); } }
     function initCharts() {
         const ctx1 = document.getElementById('speedChart').getContext('2d');
         speedChart = new Chart(ctx1, { type: 'line', data: { labels: [], datasets: [{ label: 'SPEED', borderColor: '#00f3ff', borderWidth: 2, backgroundColor: 'rgba(0,243,255,0.1)', fill:true, data: [] }] }, options: { scales: { x: { display: false }, y: { grid: { color: '#333' } } } } });
-
         const ctx2 = document.getElementById('vibChart').getContext('2d');
         vibChart = new Chart(ctx2, { type: 'line', data: { labels: [], datasets: [{ label: 'ROUGHNESS', borderColor: '#fcee0a', borderWidth: 2, backgroundColor: 'rgba(252,238,10,0.1)', fill:true, data: [] }] }, options: { scales: { x: { display: false }, y: { grid: { color: '#333' } } } } });
     }
-
     function updateGraphs(data) {
         const now = new Date().toLocaleTimeString();
         if(timeLabels.length > 20) { timeLabels.shift(); speedHistory.shift(); vibHistory.shift(); }
-        timeLabels.push(now);
-        speedHistory.push(data.speed || 0);
-        vibHistory.push(data.vibration || 0);
+        timeLabels.push(now); speedHistory.push(data.speed || 0); vibHistory.push(data.vibration || 0);
+        if(speedChart) { speedChart.data.labels = timeLabels; speedChart.data.datasets[0].data = speedHistory; speedChart.update(); vibChart.data.labels = timeLabels; vibChart.data.datasets[0].data = vibHistory; vibChart.update(); }
+    }
 
-        if(speedChart) {
-            speedChart.data.labels = timeLabels; speedChart.data.datasets[0].data = speedHistory; speedChart.update();
-            vibChart.data.labels = timeLabels; vibChart.data.datasets[0].data = vibHistory; vibChart.update();
-        }
+    function updateTime() {
+      const options = { timeZone: 'Asia/Kuala_Lumpur', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
+      const timeString = new Date().toLocaleTimeString('en-US', options);
+      document.getElementById('kl-time').innerText = "MYT " + timeString;
     }
 
     window.onload = () => { 
         setTimeout(() => { 
-            initMap(); initCharts(); logEvent("SYSTEM READY"); 
-            updateTime();
-            // Try auto-connect
+            initMap(); initCharts(); logEvent("[SYSTEM] INITIALIZED"); 
+            updateTime(); setInterval(updateTime, 1000);
+            
+            // Try default
+            const DEFAULT_CAM_URL = "https://preceding-headlines-directories-clearance.trycloudflare.com";
             document.getElementById('cam-url').value = DEFAULT_CAM_URL;
             connectCams();
         }, 1000); 
     }
-    
     window.openData = () => document.getElementById('dataModal').style.display = 'block';
     window.closeData = () => document.getElementById('dataModal').style.display = 'none';
-
   </script>
 </head>
 <body>
-
-  <!-- HEADER -->
   <header>
     <div class="brand">MPM-RAIV <span style="font-size:12px; color:white; opacity:0.7;">// COMMAND</span></div>
-    <div class="status-bar">
-      <div class="time-box" id="kl-time">MYT --:--:--</div>
-      <div class="status-item"><span class="live-dot"></span> <b>LIVE</b></div>
-      <div class="status-item">SYS: <b id="sys-status" style="color:var(--cyber-yellow)">INIT</b></div>
-    </div>
+    <div class="status-bar"><div class="time-box" id="kl-time">MYT --:--:--</div><div class="status-item"><span class="live-dot"></span> <b>LIVE</b></div><div class="status-item">SYS: <b id="sys-status" style="color:var(--cyber-yellow)">INIT</b></div></div>
   </header>
-
-  <!-- MAIN COCKPIT -->
   <div class="cockpit">
-    
-    <!-- TOP ROW: CAMERAS -->
     <div class="video-section">
-      <div class="cam-box">
-        <div class="scan-line"></div>
-        <div class="cam-label">CAM 01 // FRONT</div>
-        <div class="cam-overlay"></div>
-        <img id="stream1" class="stream-img">
-        <div id="nosig1" class="no-sig">NO SIGNAL</div>
-      </div>
-      <div class="cam-box">
-        <div class="scan-line"></div>
-        <div class="cam-label">CAM 02 // REAR</div>
-        <div class="cam-overlay"></div>
-        <img id="stream2" class="stream-img">
-        <div id="nosig2" class="no-sig">NO SIGNAL</div>
-      </div>
+      <div class="cam-box"><div class="scan-line"></div><div class="cam-label">CAM 01 // FRONT</div><div class="cam-overlay"></div><img id="stream1" class="stream-img"><div id="nosig1" class="no-sig">NO SIGNAL</div></div>
+      <div class="cam-box"><div class="scan-line"></div><div class="cam-label">CAM 02 // REAR</div><div class="cam-overlay"></div><img id="stream2" class="stream-img"><div id="nosig2" class="no-sig">NO SIGNAL</div></div>
     </div>
-
-    <!-- MIDDLE ROW: DATA -->
-    
-    <!-- 1. MAP -->
-    <div class="panel map-panel">
-      <div class="panel-header"><span>GPS TRACKING</span><span>SAT LINK</span></div>
-      <div class="map-container">
-        <div id="map"></div>
-        <div class="map-overlay">
-            <button class="btn-dir" onclick="getDirections()">GET DIRECTIONS &#8599;</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 2. SPEEDOMETER -->
+    <div class="panel map-panel"><div class="panel-header"><span>GPS TRACKING</span><span>SAT LINK</span></div><div class="map-container"><div id="map"></div><div class="map-overlay"><button class="btn-dir" onclick="getDirections()">GET DIRECTIONS &#8599;</button></div></div></div>
     <div class="panel speed-panel">
       <div class="panel-header"><span>VELOCITY</span><span>KM/H</span></div>
-      <div class="gauge-container">
-        <svg>
-          <circle class="bg-ring" cx="110" cy="110" r="90"></circle>
-          <circle id="gauge-ring" class="fg-ring" cx="110" cy="110" r="90"></circle>
-        </svg>
-        <div class="speed-readout">
-          <div id="speed-val" class="big-num">0.0</div>
-          <div class="unit">KM/H</div>
-        </div>
-      </div>
+      <div class="gauge-container"><svg><circle class="bg-ring" cx="110" cy="110" r="90"></circle><circle id="gauge-ring" class="fg-ring" cx="110" cy="110" r="90"></circle></svg><div class="speed-readout"><div id="speed-val" class="big-num">0.0</div><div class="unit">KM/H</div></div></div>
     </div>
-
-    <!-- 3. TELEMETRY -->
     <div class="panel data-panel">
       <div class="panel-header"><span>TELEMETRY STREAM</span><span>LIVE</span></div>
       <div class="data-row val-vib"><span>TRACK ROUGHNESS</span> <span id="vib-val">0.00 G</span></div>
@@ -633,72 +529,21 @@
       <div class="data-row val-dist"><span>AUTO DISTANCE</span> <span id="dist-val">MANUAL</span></div>
       <div id="terminal" class="terminal"></div>
     </div>
-
-    <!-- BOTTOM ROW: CONTROLS & NAV -->
     <div class="control-container">
-      
-      <!-- NAV PANEL -->
       <div class="nav-panel">
-        <div class="nav-row">
-          <label>NAV MODE:</label>
-          <select id="move-mode" onchange="updateNavMode()">
-            <option value="hold">AUTO HOLD (MANUAL)</option>
-            <option value="meters">METERS (AUTO)</option>
-            <option value="km">KILOMETERS (AUTO)</option>
-          </select>
-        </div>
-        <div class="nav-row slider-container" id="slider-cont">
-          <label>DIST:</label>
-          <input type="range" id="dist-slider" oninput="updateSlider(this.value)">
-          <div id="slider-val" class="slider-val">N/A</div>
-        </div>
-        
-        <!-- Collapsible Cam Link -->
+        <div class="nav-row"><label>NAV MODE:</label><select id="move-mode" onchange="updateNavMode()"><option value="hold">AUTO HOLD (MANUAL)</option><option value="meters">METERS (AUTO)</option><option value="km">KILOMETERS (AUTO)</option></select></div>
+        <div class="nav-row slider-container" id="slider-cont"><label>DIST:</label><input type="range" id="dist-slider" oninput="updateSlider(this.value)"><div id="slider-val" class="slider-val">N/A</div></div>
         <button class="btn-config" onclick="toggleCamConfig()">CONFIGURE LINK +</button>
-        <div id="cam-config-area">
-            <input type="text" id="cam-url" placeholder="Paste Ngrok/Cloudflare URL...">
-            <button onclick="connectCams()" style="width:100%; margin-top:5px; background:var(--cyber-blue); border:none; color:black; font-weight:bold; cursor:pointer;">CONNECT</button>
-        </div>
+        <div id="cam-config-area"><input type="text" id="cam-url" placeholder="Paste Cloudflare URL..."><button onclick="connectCams()" style="width:100%; margin-top:5px; background:var(--cyber-blue); border:none; color:black; font-weight:bold; cursor:pointer;">CONNECT</button></div>
       </div>
-
-      <!-- BUTTONS -->
       <div class="control-bar">
-        <button class="btn btn-fwd" onmousedown="handlePress('FORWARD')" onmouseup="handleRelease()" ontouchstart="handlePress('FORWARD')" ontouchend="handleRelease()">
-          FORWARD
-        </button>
-        <button class="btn btn-stop" onclick="sendCommand('STOP')">
-          STOP
-        </button>
-        <button class="btn btn-bwd" onmousedown="handlePress('BACKWARD')" onmouseup="handleRelease()" ontouchstart="handlePress('BACKWARD')" ontouchend="handleRelease()">
-          BACKWARD
-        </button>
-        <button class="btn btn-data" onclick="openData()">
-          DATA
-        </button>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ANALYTICS POPUP -->
-  <div id="dataModal">
-    <div class="modal-content">
-      <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
-        <h2 style="font-size:24px; color:white; border:none;">MISSION DATA LOGS</h2>
-        <button onclick="closeData()" style="background:none; border:1px solid red; color:red; font-size:20px; cursor:pointer;">[CLOSE]</button>
-      </div>
-      
-      <div class="chart-box">
-        <div class="panel-header">VELOCITY HISTORY</div>
-        <canvas id="speedChart"></canvas>
-      </div>
-      
-      <div class="chart-box">
-        <div class="panel-header">TRACK ROUGHNESS PROFILE</div>
-        <canvas id="vibChart"></canvas>
+        <button class="btn btn-fwd" onmousedown="handlePress('FORWARD')" onmouseup="handleRelease()" ontouchstart="handlePress('FORWARD')" ontouchend="handleRelease()">FORWARD</button>
+        <button class="btn btn-stop" onclick="sendCommand('STOP')">STOP</button>
+        <button class="btn btn-bwd" onmousedown="handlePress('BACKWARD')" onmouseup="handleRelease()" ontouchstart="handlePress('BACKWARD')" ontouchend="handleRelease()">BACKWARD</button>
+        <button class="btn btn-data" onclick="openData()">DATA</button>
       </div>
     </div>
   </div>
-
+  <div id="dataModal"><div class="modal-content"><div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h2 style="font-size:24px; color:white; border:none;">MISSION DATA LOGS</h2><button onclick="closeData()" style="background:none; border:1px solid red; color:red; font-size:20px; cursor:pointer;">[CLOSE]</button></div><div class="chart-box"><div class="panel-header">VELOCITY HISTORY</div><canvas id="speedChart"></canvas></div><div class="chart-box"><div class="panel-header">TRACK ROUGHNESS PROFILE</div><canvas id="vibChart"></canvas></div></div></div>
 </body>
 </html>
