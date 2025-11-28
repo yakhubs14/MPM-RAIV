@@ -64,6 +64,25 @@ def gen(camera):
                 time.sleep(0.1)
         except: time.sleep(0.1)
 
+# --- WEB ROUTES ---
+@app.route('/')
+def index():
+    return """
+    <html>
+    <head><title>RAIV Camera Server</title></head>
+    <body style="background:black; color:cyan; font-family:monospace; text-align:center; padding-top:50px;">
+        <h1>RAIV CAMERA SYSTEM ONLINE</h1>
+        <p>Status: ACTIVE</p>
+        <div style="margin-top:30px;">
+            <p>Check Streams:</p>
+            <a href="/video1" style="color:yellow; font-size:20px;">[ VIEW CAMERA 1 ]</a>
+            <br><br>
+            <a href="/video2" style="color:yellow; font-size:20px;">[ VIEW CAMERA 2 ]</a>
+        </div>
+    </body>
+    </html>
+    """
+
 @app.route('/video1')
 def video_feed1():
     global cam1
