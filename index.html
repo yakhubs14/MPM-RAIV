@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>MPM-RAIV // GLOBAL COMMAND</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  
+  <!-- Libraries -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Cyberpunk Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --cyber-blue: #00f0ff;
+      --cyber-red: #ff003c;
+      --cyber-green: #05ffa1;
+      --cyber-yellow: #fcee0a;
+      --bg-dark: #020204;
+      --panel-bg: rgba(10, 15, 20, 0.85);
+      --border-glow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+
+    * { box-sizing: border-box; user-select: none; }
+
+    body {
+      margin: 0; padding: 0;
+      background-color: var(--bg-dark);
+      /* Complex Grid Background */
+      background-image: 
+        radial-gradient(circle at 50% 50%, #1a2a3a 0%, #000 80%),
+        linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 40px 40px, 40px 40px;
+      font-family: 'Oxanium', cursive;
+      color: white;
+      height: 100vh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* --- TOP HEADER --- */
+    header {
+      height: 50px;
+      background: linear-gradient(90deg, #000, #112, #000);
+      border-bottom: 2px solid var(--cyber-blue);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 20px;
+      box-shadow: 0 5px 15px rgba(0, 240, 255, 0.15);
+      z-index: 100;
+    }
+    .brand { font-size: 24px; font-weight: 800; color: var(--cyber-blue); text-shadow: 0 0 15px var(--cyber-blue); letter-spacing: 2px; }
+    .status-bar { display: flex; gap: 20px; font-size: 14px; color: #888; }
+    .status-item b { color: white; margin-left: 5px; }
+    .live-dot { width: 10px; height: 10px; background: var(--cyber-red); border-radius: 50%; display: inline-block; animation: blink 1s infinite; margin-right: 5px; }
+
+    /* --- MAIN LAYOUT --- */
+    .cockpit {
+      flex: 1;
+      display: grid;
+      /* Top Row (Cams), Middle Row (Map/Speed/Data), Bottom Row (Controls) */
+      grid-template-rows: 2fr 1.5fr 120px; 
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 15px;
+      padding: 15px;
+      overflow-y: auto;
+    }
+
+    /* --- PANEL STYLING (The "Heavy" Look) --- */
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid rgba(255,255,255,0.1);
+      position: relative;
+      clip-path: polygon(
+        20px 0, 100% 0, 
+        100% calc(100% - 20px), calc(100% - 20px) 100%, 
+        0 100%, 0 20px
+      );
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+      backdrop-filter: blur(5px);
+    }
+    .panel::before {
+      content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      border: 1px solid transparent;
+      border-top-color: rgba(255,255,255,0.3);
+      border-bottom-color: rgba(255,255,255,0.1);
+      pointer-events: none;
+    }
+    .panel-header {
+      background: rgba(255,255,255,0.05);
+      padding: 5px 15px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      color: rgba(255,255,255,0.6);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex; justify-content: space-between;
+    }
+
+    /* --- VIDEO FEEDS (SIDE BY SIDE) --- */
+    .video-section {
+      grid-column: 1 / -1; /* Full Width */
+      grid-row: 1 / 2;
+      display: flex; gap: 15px;
+    }
+    .cam-box {
+      flex: 1;
+      background: #000;
+      position: relative;
+      display: flex; justify-content: center; align-items: center;
+      border: 2px solid #333;
+      overflow: hidden;
+    }
+    /* Camera Overlay Graphics */
+    .cam-overlay {
+      position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px;
+      border: 1px dashed rgba(0, 240, 255, 0.3);
+      pointer-events: none;
+    }
+    .cam-label {
+      position: absolute; top: 15px; left: 15px;
+      background: rgba(0,0,0,0.8); color: var(--cyber-red);
+      padding: 3px 8px; font-weight: bold; border: 1px solid var(--cyber-red);
+      font-size: 12px;
+    }
+    .scan-line {
+      position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+      background: rgba(0, 240, 255, 0.5);
+      box-shadow: 0 0 10px var(--cyber-blue);
+      animation: scan 3s linear infinite;
+    }
+    @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+
+    /* --- MIDDLE ROW --- */
+    
+    /* 1. MAP (Left) */
+    .map-panel { grid-column: 1 / 2; grid-row: 2 / 3; display: flex; flex-direction: column; }
+    #map { flex: 1; filter: grayscale(100%) invert(100%) contrast(1.2); border: 1px solid #444; }
+
+    /* 2. SPEEDOMETER (Center - The Hero) */
+    .speed-panel { 
+      grid-column: 2 / 3; grid-row: 2 / 3; 
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border-top: 4px solid var(--cyber-blue);
+    }
+    
+    .gauge-container { position: relative; width: 220px; height: 220px; }
+    svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    circle { fill: none; stroke-width: 15; stroke-linecap: round; }
+    .bg-ring { stroke: #222; }
+    .fg-ring { stroke: var(--cyber-blue); stroke-dasharray: 565; stroke-dashoffset: 565; transition: stroke-dashoffset 0.3s; filter: drop-shadow(0 0 8px var(--cyber-blue)); }
+    
+    .speed-readout {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .big-num { font-size: 64px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 0 20px rgba(255,255,255,0.5); }
+    .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; }
+
+    /* 3. TELEMETRY (Right) */
+    .data-panel { grid-column: 3 / 4; grid-row: 2 / 3; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+    .data-row { 
+      display: flex; justify-content: space-between; align-items: center; 
+      background: rgba(255,255,255,0.03); padding: 8px 12px; border-left: 3px solid #444;
+    }
+    .data-row span:last-child { font-weight: bold; font-size: 16px; }
+    
+    .val-vib { color: var(--cyber-yellow); border-left-color: var(--cyber-yellow); }
+    .val-dist { color: var(--cyber-green); border-left-color: var(--cyber-green); }
+    
+    /* Terminal Effect */
+    .terminal {
+      flex: 1; background: #000; border: 1px solid #333; padding: 10px;
+      font-family: monospace; font-size: 11px; color: var(--cyber-green);
+      overflow-y: hidden; opacity: 0.8;
+    }
+
+    /* --- BOTTOM CONTROLS & NAV --- */
+    .control-container {
+      grid-column: 1 / -1; grid-row: 3 / 4;
+      display: flex; gap: 20px;
+    }
+
+    /* NAV SETTINGS (Left) */
+    .nav-panel {
+      flex: 1;
+      background: rgba(0,0,0,0.8);
+      border: 1px solid var(--cyber-blue);
+      padding: 10px;
+      display: flex; flex-direction: column; justify-content: center; gap: 10px;
+      clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 20px);
+    }
+    
+    .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; }
+    
+    select {
+      background: #000; color: white; border: 1px solid var(--cyber-blue);
+      padding: 5px; font-family: 'Oxanium'; font-size: 16px; flex: 1; outline: none;
+    }
+
+    /* SLIDER STYLING */
+    .slider-container { width: 100%; display: flex; align-items: center; gap: 10px; opacity: 0.3; transition: 0.3s; pointer-events: none; }
+    .slider-active { opacity: 1; pointer-events: auto; }
+    
+    input[type=range] {
+      flex: 1; -webkit-appearance: none; height: 10px; background: #222; outline: none; border-radius: 5px; border: 1px solid #444;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 25px; height: 25px; background: var(--cyber-blue); cursor: pointer; border-radius: 2px;
+      box-shadow: 0 0 10px var(--cyber-blue); clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    }
+    .slider-val { width: 80px; text-align: right; color: var(--cyber-blue); font-weight: bold; font-size: 18px; }
+
+    /* BUTTONS (Right) */
+    .control-bar {
+      flex: 2; display: flex; gap: 15px;
+    }
+    
+    .btn {
+      flex: 1; border: none; outline: none;
+      font-family: 'Oxanium', cursive; font-size: 20px; font-weight: 800; letter-spacing: 1px;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: all 0.2s;
+      clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+      text-transform: uppercase;
+    }
+    
+    .btn-fwd { background: rgba(5, 255, 161, 0.1); color: var(--cyber-green); border: 2px solid var(--cyber-green); }
+    .btn-fwd:active { background: var(--cyber-green); color: black; box-shadow: 0 0 30px var(--cyber-green); }
+
+    .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); }
+    .btn-stop:active { background: var(--cyber-red); color: white; box-shadow: 0 0 40px var(--cyber-red); }
+
+    .btn-bwd { background: rgba(252, 238, 10, 0.1); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); }
+    .btn-bwd:active { background: var(--cyber-yellow); color: black; box-shadow: 0 0 30px var(--cyber-yellow); }
+
+    .btn-data { flex: 0.4; background: rgba(0, 240, 255, 0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
+    .btn-data:hover { background: var(--cyber-blue); color: black; }
+
+    /* --- RESPONSIVE --- */
+    @media (max-width: 1024px) {
+      .cockpit {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto auto auto;
+      }
+      .video-section { grid-column: 1 / -1; grid-row: 1; height: 300px; }
+      .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 250px; }
+      .data-panel { grid-column: 2 / 3; grid-row: 2; height: 250px; }
+      .map-panel { grid-column: 1 / -1; grid-row: 3; height: 200px; }
+      .control-container { grid-column: 1 / -1; grid-row: 4; flex-direction: column; height: auto; }
+      .nav-panel { height: 120px; } .control-bar { height: 80px; }
+    }
+
+    @media (max-width: 600px) {
+      .cockpit { display: flex; flex-direction: column; height: auto; }
+      .video-section { flex-direction: column; height: 400px; } 
+      .control-container { position: fixed; bottom: 0; left: 0; width: 100%; padding: 10px; background: #000; z-index: 900; border-top: 2px solid var(--cyber-blue); flex-direction: column; height: auto; }
+      body { padding-bottom: 220px; overflow-y: scroll; }
+    }
+
+    /* Modal */
+    #dataModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; padding: 20px; overflow-y: auto; }
+    .modal-content { max-width: 800px; margin: 40px auto; color: white; border: 1px solid var(--cyber-blue); padding: 20px; background: #111; }
+    .chart-box { background: #000; border: 1px solid #333; padding: 10px; margin-bottom: 20px; }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+  </style>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    // --- CONFIGURATION ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyD69TabKnrT2AnF3ck6B1gHx5BlVNwYmXs",
+      authDomain: "mpm-raiv.firebaseapp.com",
+      databaseURL: "https://mpm-raiv-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "mpm-raiv",
+      storageBucket: "mpm-raiv.firebasestorage.app",
+      messagingSenderId: "438673223474",
+      appId: "1:438673223474:web:2e68b8cc948f6af3dbf12b",
+      measurementId: "G-XDNJ8DCK95"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // --- VARIABLES ---
+    let navMode = "hold"; // hold, meters, km
+    let sliderValue = 0.5;
+    
+    // --- NAV LOGIC ---
+    window.updateNavMode = function() {
+      navMode = document.getElementById('move-mode').value;
+      const sliderCont = document.getElementById('slider-cont');
+      const slider = document.getElementById('dist-slider');
+      const valDisp = document.getElementById('slider-val');
+      
+      if (navMode === "hold") {
+        sliderCont.classList.remove('slider-active');
+        valDisp.innerText = "N/A";
+      } else {
+        sliderCont.classList.add('slider-active');
+        if (navMode === "meters") {
+          slider.min = "0.5"; slider.max = "10"; slider.step = "0.5"; slider.value = "0.5";
+          valDisp.innerText = "0.5 m";
+        } else if (navMode === "km") {
+          slider.min = "1"; slider.max = "20"; slider.step = "1"; slider.value = "1";
+          valDisp.innerText = "1 km";
+        }
+        sliderValue = parseFloat(slider.value);
+      }
+    }
+
+    window.updateSlider = function(val) {
+      sliderValue = parseFloat(val);
+      const unit = (navMode === "meters") ? "m" : "km";
+      document.getElementById('slider-val').innerText = sliderValue + " " + unit;
+    }
+
+    // --- COMMAND LOGIC ---
+    window.handlePress = function(dir) {
+      if (navMode === "hold") {
+        sendCommand(dir);
+      } else {
+        let distMeters = 0;
+        if (navMode === "meters") distMeters = sliderValue;
+        if (navMode === "km") distMeters = sliderValue * 1000;
+        
+        let prefix = (dir === "FORWARD") ? "FWD_" : "BWD_";
+        sendCommand(prefix + distMeters);
+        logEvent(`AUTO NAV: ${distMeters}m`);
+      }
+    }
+
+    window.handleRelease = function() {
+      if (navMode === "hold") sendCommand('STOP');
+    }
+
+    window.sendCommand = function(cmd) {
+      set(ref(db, 'command'), cmd);
+      logEvent(`CMD SENT: ${cmd}`);
+    }
+
+    // --- TELEMETRY ---
+    const telemetryRef = ref(db, 'telemetry');
+    onValue(telemetryRef, (snapshot) => {
+      const data = snapshot.val();
+      if(data) {
+        updateUI(data);
+        updateGraphs(data);
+      }
+    });
+
+    function updateUI(data) {
+      // Speed
+      const speed = data.speed || 0;
+      document.getElementById('speed-val').innerText = speed.toFixed(1);
+      
+      const maxSpeed = 20;
+      const offset = 565 - ((Math.min(speed, maxSpeed) / maxSpeed) * 565);
+      document.getElementById('gauge-ring').style.strokeDashoffset = offset;
+
+      // Data
+      document.getElementById('vib-val').innerText = (data.vibration || 0).toFixed(2) + " G";
+      document.getElementById('vert-val').innerText = (data.vertical || 0).toFixed(2) + " G";
+      
+      // Auto Dist
+      if(data.targ_dist) {
+         document.getElementById('dist-val').innerText = (data.prog_dist || 0).toFixed(1) + " / " + data.targ_dist.toFixed(1) + " m";
+      } else {
+         document.getElementById('dist-val').innerText = "MANUAL";
+      }
+
+      // Status
+      const statusEl = document.getElementById('sys-status');
+      if(data.status === "MOVING") {
+        statusEl.innerText = "ACTIVE // MOVING";
+        statusEl.style.color = "var(--cyber-green)";
+      } else {
+        statusEl.innerText = "STANDBY";
+        statusEl.style.color = "var(--cyber-yellow)";
+      }
+
+      if(data.lat !== 0) updateMap(data.lat, data.lng);
+    }
+
+    function logEvent(msg) {
+      const term = document.getElementById('terminal');
+      const time = new Date().toLocaleTimeString();
+      const line = document.createElement('div');
+      line.innerText = `[${time}] > ${msg}`;
+      term.prepend(line);
+      if(term.children.length > 6) term.lastChild.remove();
+    }
+
+    // --- MAP & CHARTS ---
+    let map, marker, speedChart, vibChart;
+    let timeLabels = [], speedHistory = [], vibHistory = [];
+
+    function initMap() {
+      map = L.map('map').setView([0, 0], 2);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+    }
+    function updateMap(lat, lng) {
+        if (!map) return;
+        if (!marker) {
+            marker = L.marker([lat, lng]).addTo(map);
+            map.setView([lat, lng], 16);
+        } else {
+            marker.setLatLng([lat, lng]);
+            map.setView([lat, lng], 16);
+        }
+    }
+
+    function initCharts() {
+        const ctx1 = document.getElementById('speedChart').getContext('2d');
+        speedChart = new Chart(ctx1, { type: 'line', data: { labels: [], datasets: [{ label: 'SPEED', borderColor: '#00f3ff', borderWidth: 2, backgroundColor: 'rgba(0,243,255,0.1)', fill:true, data: [] }] }, options: { scales: { x: { display: false }, y: { grid: { color: '#333' } } } } });
+
+        const ctx2 = document.getElementById('vibChart').getContext('2d');
+        vibChart = new Chart(ctx2, { type: 'line', data: { labels: [], datasets: [{ label: 'ROUGHNESS', borderColor: '#fcee0a', borderWidth: 2, backgroundColor: 'rgba(252,238,10,0.1)', fill:true, data: [] }] }, options: { scales: { x: { display: false }, y: { grid: { color: '#333' } } } } });
+    }
+
+    function updateGraphs(data) {
+        const now = new Date().toLocaleTimeString();
+        if(timeLabels.length > 20) { timeLabels.shift(); speedHistory.shift(); vibHistory.shift(); }
+        timeLabels.push(now);
+        speedHistory.push(data.speed || 0);
+        vibHistory.push(data.vibration || 0);
+
+        if(speedChart) {
+            speedChart.data.labels = timeLabels; speedChart.data.datasets[0].data = speedHistory; speedChart.update();
+            vibChart.data.labels = timeLabels; vibChart.data.datasets[0].data = vibHistory; vibChart.update();
+        }
+    }
+
+    window.onload = () => { setTimeout(() => { initMap(); initCharts(); logEvent("SYSTEM READY"); }, 1000); }
+    window.openData = () => document.getElementById('dataModal').style.display = 'block';
+    window.closeData = () => document.getElementById('dataModal').style.display = 'none';
+
+  </script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">MPM-RAIV <span style="font-size:12px; color:white; opacity:0.7;">// COMMAND</span></div>
+    <div class="status-bar">
+      <div class="status-item"><span class="live-dot"></span> CONNECTION: <b>SECURE</b></div>
+      <div class="status-item">SYSTEM: <b id="sys-status" style="color:var(--cyber-yellow)">INIT</b></div>
+    </div>
+  </header>
+
+  <!-- MAIN COCKPIT -->
+  <div class="cockpit">
+    
+    <!-- TOP ROW: CAMERAS (SIDE BY SIDE) -->
+    <div class="video-section">
+      <div class="cam-box">
+        <div class="scan-line"></div>
+        <div class="cam-label">CAM 01 // FRONT OPTIC</div>
+        <div class="cam-overlay"></div>
+        <div>NO SIGNAL DETECTED</div>
+      </div>
+      <div class="cam-box">
+        <div class="scan-line"></div>
+        <div class="cam-label">CAM 02 // REAR OPTIC</div>
+        <div class="cam-overlay"></div>
+        <div>NO SIGNAL DETECTED</div>
+      </div>
+    </div>
+
+    <!-- MIDDLE ROW: DATA -->
+    
+    <!-- 1. MAP -->
+    <div class="panel map-panel">
+      <div class="panel-header"><span>GPS TRACKING</span><span>SAT LINK</span></div>
+      <div id="map"></div>
+    </div>
+
+    <!-- 2. SPEEDOMETER -->
+    <div class="panel speed-panel">
+      <div class="panel-header"><span>VELOCITY</span><span>KM/H</span></div>
+      <div class="gauge-container">
+        <svg>
+          <circle class="bg-ring" cx="110" cy="110" r="90"></circle>
+          <circle id="gauge-ring" class="fg-ring" cx="110" cy="110" r="90"></circle>
+        </svg>
+        <div class="speed-readout">
+          <div id="speed-val" class="big-num">0.0</div>
+          <div class="unit">KM/H</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. TELEMETRY -->
+    <div class="panel data-panel">
+      <div class="panel-header"><span>TELEMETRY STREAM</span><span>LIVE</span></div>
+      <div class="data-row val-vib"><span>TRACK ROUGHNESS</span> <span id="vib-val">0.00 G</span></div>
+      <div class="data-row val-vib"><span>VERTICAL FORCE</span> <span id="vert-val">0.00 G</span></div>
+      <div class="data-row val-dist"><span>AUTO DISTANCE</span> <span id="dist-val">MANUAL</span></div>
+      <div id="terminal" class="terminal"></div>
+    </div>
+
+    <!-- BOTTOM ROW: CONTROLS & NAV -->
+    <div class="control-container">
+      
+      <!-- NAV PANEL -->
+      <div class="nav-panel">
+        <div class="nav-row">
+          <label>NAV MODE:</label>
+          <select id="move-mode" onchange="updateNavMode()">
+            <option value="hold">AUTO HOLD (MANUAL)</option>
+            <option value="meters">METERS (AUTO)</option>
+            <option value="km">KILOMETERS (AUTO)</option>
+          </select>
+        </div>
+        <div class="nav-row slider-container" id="slider-cont">
+          <label>DIST:</label>
+          <input type="range" id="dist-slider" oninput="updateSlider(this.value)">
+          <div id="slider-val" class="slider-val">N/A</div>
+        </div>
+      </div>
+
+      <!-- BUTTONS -->
+      <div class="control-bar">
+        <button class="btn btn-fwd" onmousedown="handlePress('FORWARD')" onmouseup="handleRelease()" ontouchstart="handlePress('FORWARD')" ontouchend="handleRelease()">
+          FORWARD
+        </button>
+        <button class="btn btn-stop" onclick="sendCommand('STOP')">
+          STOP
+        </button>
+        <button class="btn btn-bwd" onmousedown="handlePress('BACKWARD')" onmouseup="handleRelease()" ontouchstart="handlePress('BACKWARD')" ontouchend="handleRelease()">
+          BACKWARD
+        </button>
+        <button class="btn btn-data" onclick="openData()">
+          DATA
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ANALYTICS POPUP -->
+  <div id="dataModal">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="font-size:24px; color:white; border:none;">MISSION DATA LOGS</h2>
+        <button onclick="closeData()" style="background:none; border:1px solid red; color:red; font-size:20px; cursor:pointer;">[CLOSE]</button>
+      </div>
+      
+      <div class="chart-box">
+        <div class="panel-header">VELOCITY HISTORY</div>
+        <canvas id="speedChart"></canvas>
+      </div>
+      
+      <div class="chart-box">
+        <div class="panel-header">TRACK ROUGHNESS PROFILE</div>
+        <canvas id="vibChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
