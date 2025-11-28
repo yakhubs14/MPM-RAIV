@@ -67,7 +67,7 @@
       overflow-y: auto;
     }
 
-    /* --- PANEL STYLING --- */
+    /* --- PANEL STYLING (The "Heavy" Look) --- */
     .panel {
       background: var(--panel-bg);
       border: 1px solid rgba(255,255,255,0.1);
@@ -294,6 +294,9 @@
     let navMode = "hold"; // hold, meters, km
     let sliderValue = 0.5;
     
+    // DEFAULT URL FROM NGROK (User can change this in UI)
+    const DEFAULT_CAM_URL = "https://unhailed-ambrose-ruthlessly.ngrok-free.dev";
+
     // --- NAV LOGIC ---
     window.updateNavMode = function() {
       navMode = document.getElementById('move-mode').value;
@@ -325,18 +328,19 @@
 
     // --- CONNECT CAMERAS ---
     window.connectCams = function() {
-      const url = document.getElementById('cam-url').value;
-      if(url.length > 5) {
-        document.getElementById('stream1').src = url + "/video1";
-        document.getElementById('stream2').src = url + "/video2";
-        
-        document.getElementById('stream1').style.display = "block";
-        document.getElementById('nosig1').style.display = "none";
-        document.getElementById('stream2').style.display = "block";
-        document.getElementById('nosig2').style.display = "none";
-        
-        logEvent("CAMERAS CONNECTED");
-      }
+      // Use Input or Default
+      const inputUrl = document.getElementById('cam-url').value;
+      const url = (inputUrl.length > 5) ? inputUrl : DEFAULT_CAM_URL;
+      
+      document.getElementById('stream1').src = url + "/video1";
+      document.getElementById('stream2').src = url + "/video2";
+      
+      document.getElementById('stream1').style.display = "block";
+      document.getElementById('nosig1').style.display = "none";
+      document.getElementById('stream2').style.display = "block";
+      document.getElementById('nosig2').style.display = "none";
+      
+      logEvent("CONNECTED TO: " + url);
     }
 
     // --- COMMAND LOGIC ---
@@ -455,7 +459,16 @@
         }
     }
 
-    window.onload = () => { setTimeout(() => { initMap(); initCharts(); logEvent("SYSTEM READY"); }, 1000); }
+    // Auto-Connect Cams on Load
+    window.onload = () => { 
+        setTimeout(() => { 
+            initMap(); initCharts(); logEvent("SYSTEM READY"); 
+            // Try auto-connect to default
+            document.getElementById('cam-url').value = DEFAULT_CAM_URL;
+            connectCams();
+        }, 1000); 
+    }
+    
     window.openData = () => document.getElementById('dataModal').style.display = 'block';
     window.closeData = () => document.getElementById('dataModal').style.display = 'none';
 
