@@ -8,7 +8,7 @@ app = Flask(__name__)
 # --- CONFIGURATION ---
 # Camera Indices (0 is usually built-in webcam, 1 and 2 are USB)
 # Try changing these numbers if cameras are swapped or not found.
-CAM_1_INDEX = 0 
+CAM_1_INDEX = 2 
 CAM_2_INDEX = 1 
 
 # --- CAMERA HANDLER ---
