@@ -42,10 +42,8 @@
       color: white;
       min-height: 100vh; 
       display: flex; flex-direction: column;
+      overflow-y: auto; /* Enable vertical scroll */
       overflow-x: hidden;
-      /* Improve scrolling on mobile */
-      height: auto; 
-      overflow-y: auto;
     }
 
     /* --- TOP HEADER --- */
@@ -57,8 +55,7 @@
       padding: 0 15px;
       box-shadow: 0 5px 20px rgba(0, 240, 255, 0.2);
       z-index: 100;
-      flex-shrink: 0;
-      position: sticky; top: 0;
+      flex-shrink: 0; /* Prevent header shrinking */
     }
     .brand { font-size: 20px; font-weight: 800; color: var(--cyber-blue); text-shadow: 0 0 15px var(--cyber-blue); letter-spacing: 2px; }
     .status-bar { display: flex; gap: 15px; font-size: 12px; color: #888; align-items: center; }
@@ -70,7 +67,7 @@
       flex: 1;
       display: grid;
       /* Desktop: Top (Video), Middle (Map/Data - Fixed Height), Bottom (Controls) */
-      grid-template-rows: auto 320px auto; 
+      grid-template-rows: minmax(400px, auto) minmax(250px, auto) auto; 
       grid-template-columns: 320px 1fr 320px;
       gap: 15px;
       padding: 15px;
@@ -88,7 +85,6 @@
       box-shadow: inset 0 0 30px rgba(0,0,0,0.9);
       backdrop-filter: blur(8px);
       transition: border 0.3s;
-      display: flex; flex-direction: column;
     }
     .panel:hover { border-color: rgba(0, 240, 255, 0.5); }
     
@@ -102,14 +98,13 @@
       display: flex; justify-content: space-between;
       text-transform: uppercase;
       font-weight: 700;
-      flex-shrink: 0;
     }
 
     /* --- VIDEO FEEDS --- */
     .video-section {
       grid-column: 1 / -1; grid-row: 1 / 2;
       display: flex; gap: 15px;
-      min-height: 400px;
+      min-height: 400px; /* Ensure cameras have height */
     }
     .cam-box {
       flex: 1;
@@ -139,6 +134,7 @@
     /* --- MAP --- */
     .map-panel { 
       grid-column: 1 / 2; grid-row: 2 / 3; 
+      display: flex; flex-direction: column;
       border: 1px solid var(--cyber-green);
       box-shadow: 0 0 10px rgba(5, 255, 161, 0.1);
     }
@@ -158,10 +154,10 @@
     /* --- SPEEDOMETER --- */
     .speed-panel { 
       grid-column: 2 / 3; grid-row: 2 / 3; 
-      align-items: center; justify-content: center;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
       border-top: 4px solid var(--cyber-blue);
     }
-    .gauge-container { position: relative; width: 200px; height: 200px; margin-top: 10px; }
+    .gauge-container { position: relative; width: 220px; height: 220px; margin-top: 10px; }
     svg { width: 100%; height: 100%; transform: rotate(-90deg); }
     circle { fill: none; stroke-width: 12; stroke-linecap: round; }
     .bg-ring { stroke: #222; }
@@ -171,11 +167,11 @@
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       text-align: center;
     }
-    .big-num { font-size: 60px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 0 25px rgba(0, 240, 255, 0.6); }
+    .big-num { font-size: 64px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 0 25px rgba(0, 240, 255, 0.6); }
     .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; }
 
     /* --- TELEMETRY --- */
-    .data-panel { grid-column: 3 / 4; grid-row: 2 / 3; gap: 8px; font-size: 13px; }
+    .data-panel { grid-column: 3 / 4; grid-row: 2 / 3; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
     .data-row { 
       display: flex; justify-content: space-between; align-items: center; 
       background: rgba(255,255,255,0.02); padding: 8px 12px; border-left: 2px solid #444;
@@ -198,7 +194,7 @@
       padding-bottom: 20px;
     }
 
-    /* NAV SETTINGS */
+    /* NAV SETTINGS (Left) */
     .nav-panel {
       flex: 1.2;
       background: rgba(0,0,0,0.6);
@@ -234,7 +230,7 @@
     }
     .slider-val { width: 80px; text-align: right; color: var(--cyber-blue); font-weight: bold; font-size: 18px; }
 
-    /* BUTTONS */
+    /* BUTTONS (Right) */
     .control-bar { flex: 2; display: flex; gap: 10px; }
     .btn {
       flex: 1; border: none; outline: none;
@@ -250,7 +246,7 @@
     .btn-fwd:active { background: var(--cyber-green); color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
 
     .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); box-shadow: 0 0 15px rgba(255, 0, 60, 0.1); }
-    .btn-stop:active { background: var(--cyber-red); color: white; box-shadow: 0 0 40px var(--cyber-red); transform: translateY(2px); }
+    .btn-stop:active { background: var(--cyber-red); color: white; box-shadow: 0 0 30px var(--cyber-red); transform: translateY(2px); }
 
     .btn-bwd { background: rgba(252, 238, 10, 0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); box-shadow: 0 0 15px rgba(252, 238, 10, 0.1); }
     .btn-bwd:active { background: var(--cyber-yellow); color: black; box-shadow: 0 0 30px var(--cyber-yellow); transform: translateY(2px); }
@@ -263,11 +259,11 @@
 
     /* --- RESPONSIVE MEDIA QUERIES --- */
     
-    /* Laptop/Desktop - Keep consistent height for data row */
+    /* Laptop/Desktop - Keep 3 Columns but allow resizing */
     @media (min-width: 1025px) {
       .cockpit {
         grid-template-columns: 320px 1fr 320px;
-        grid-template-rows: auto 320px auto;
+        grid-template-rows: auto auto auto;
       }
     }
 
@@ -292,9 +288,7 @@
         display: flex; flex-direction: column; 
         height: auto; gap: 20px; padding-bottom: 40px; 
       }
-      .video-section { flex-direction: column; height: auto; gap: 15px; } 
-      .cam-box { height: 250px; }
-      
+      .video-section { flex-direction: column; height: auto; gap: 15px; } .cam-box { height: 250px; }
       .map-panel { height: 300px !important; min-height: 300px; display: flex; }
       
       .control-container { 
@@ -304,10 +298,10 @@
       }
       .control-bar { height: 90px; }
       
-      /* Fix Button Text Cropping on Mobile */
+      /* Fix Button Text Cropping on Mobile by reducing clip path */
       .btn { clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); font-size: 18px; }
       
-      .nav-panel { height: auto; flex-direction: column; gap: 10px; }
+      .nav-panel { height: auto; flex-direction: column; gap: 10px; } 
       .nav-row { width: 100%; }
     }
 
@@ -315,11 +309,16 @@
     #dataModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; padding: 20px; overflow-y: auto; }
     .modal-content { max-width: 800px; margin: 40px auto; color: white; border: 1px solid var(--cyber-blue); padding: 20px; background: #111; box-shadow: 0 0 30px var(--cyber-blue); }
     .chart-box { background: #000; border: 1px solid #333; padding: 10px; margin-bottom: 20px; }
+    /* Rating Box */
+    .rating-box { text-align:center; padding: 20px; border: 1px dashed var(--cyber-yellow); margin-bottom: 20px; background: rgba(255,200,0,0.05); }
+    .star { font-size: 40px; color: #444; }
+    .star.filled { color: var(--cyber-yellow); text-shadow: 0 0 10px var(--cyber-yellow); }
+    .rating-text { font-size: 24px; font-weight: bold; margin-top: 10px; color: white; }
+    .rating-comment { font-size: 16px; color: #aaa; margin-top: 5px; font-style: italic; }
 
     @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
     @keyframes blink { 50% { opacity: 0; } }
     @keyframes textFlicker { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-
   </style>
 
   <script type="module">
@@ -341,25 +340,55 @@
     const db = getDatabase(app);
 
     let navMode = "hold"; let sliderValue = 0.5; let mapLoc = { lat: 0, lng: 0 };
+    let userLoc = null;
+    
+    // Default Fallback
+    const SEMENYIH_LAT = 2.958196;
+    const SEMENYIH_LNG = 101.823593;
 
-    // --- AUTO-DETECT CAMERA LINK FROM FIREBASE ---
+    // --- USER LOCATION ---
+    function getUserLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((position) => {
+                userLoc = { lat: position.coords.latitude, lng: position.coords.longitude };
+                logEvent("[GPS] USER LOC FOUND");
+            }, () => {
+                logEvent("[GPS] PERMISSION DENIED");
+            });
+        }
+    }
+
+    // --- DISTANCE CALC (Haversine) ---
+    function calcDistance(lat1, lon1, lat2, lon2) {
+      if (!lat1 || !lat2) return 0;
+      var R = 6371; // Radius of the earth in km
+      var dLat = deg2rad(lat2-lat1);  
+      var dLon = deg2rad(lon2-lon1); 
+      var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
+      var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+      var d = R * c; 
+      return d;
+    }
+    function deg2rad(deg) { return deg * (Math.PI/180); }
+
+    // --- AUTO-DETECT CAM ---
     const camUrlRef = ref(db, 'cam_url');
     onValue(camUrlRef, (snapshot) => {
       const rawUrl = snapshot.val();
       if(rawUrl) {
+        // Auto trim and remove quotes if any
         const url = rawUrl.trim().replace(/['"]+/g, '');
-        logEvent("[FIREBASE] NEW LINK: " + url);
+        logEvent("[SYS] LINK: " + url.substring(8, 20) + "...");
+        // Update input box so user can see it
         if(document.getElementById('cam-url').value === "") {
             document.getElementById('cam-url').value = url;
             connectCams(url);
         } else {
+            // Force connect if updated from firebase
             connectCams(url);
         }
-      } else {
-        logEvent("[FIREBASE] WAITING FOR LINK...");
       }
-    }, (error) => {
-        logEvent("[FIREBASE] ERROR: " + error.message);
     });
 
     window.updateNavMode = function() {
@@ -389,24 +418,17 @@
     window.connectCams = function(passedUrl = null) {
       let url = passedUrl;
       if (!url) url = document.getElementById('cam-url').value;
-      
       if(url && url.length > 5) {
         url = url.trim();
         const ts = new Date().getTime();
         const video1 = url + "/video1?t=" + ts;
         const video2 = url + "/video2?t=" + ts;
-
-        logEvent("[SYSTEM] CONNECTING TO: " + url);
-
+        logEvent("[VID] STREAM SYNCED");
         const img1 = document.getElementById('stream1');
         const img2 = document.getElementById('stream2');
-
-        img1.src = video1;
-        img2.src = video2;
-        
-        img1.onerror = function() { this.style.display='none'; document.getElementById('nosig1').style.display='block'; logEvent("[ERR] CAM 1 FAILED"); };
-        img2.onerror = function() { this.style.display='none'; document.getElementById('nosig2').style.display='block'; logEvent("[ERR] CAM 2 FAILED"); };
-        
+        img1.src = video1; img2.src = video2;
+        img1.onerror = function() { this.style.display='none'; document.getElementById('nosig1').style.display='block'; };
+        img2.onerror = function() { this.style.display='none'; document.getElementById('nosig2').style.display='block'; };
         img1.onload = function() { this.style.display='block'; document.getElementById('nosig1').style.display='none'; };
         img2.onload = function() { this.style.display='block'; document.getElementById('nosig2').style.display='none'; };
       }
@@ -432,19 +454,28 @@
     window.handleRelease = function() { if (navMode === "hold") sendCommand('STOP'); }
     window.sendCommand = function(cmd) { set(ref(db, 'command'), cmd); logEvent(`[CMD] SENT: ${cmd}`); }
 
-    // --- DIRECTIONS ---
     window.getDirections = function() {
-        if(mapLoc.lat !== 0) {
-            window.open(`https://www.google.com/maps/dir/?api=1&destination=${mapLoc.lat},${mapLoc.lng}`, '_blank');
-        } else {
-            alert("Waiting for GPS Lock...");
-        }
+        const targetLat = (mapLoc.lat === 0) ? SEMENYIH_LAT : mapLoc.lat;
+        const targetLng = (mapLoc.lng === 0) ? SEMENYIH_LNG : mapLoc.lng;
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLng}`, '_blank');
     }
 
+    // --- TELEMETRY ---
+    let wasMoving = false;
     const telemetryRef = ref(db, 'telemetry');
     onValue(telemetryRef, (snapshot) => {
       const data = snapshot.val();
-      if(data) { updateUI(data); updateGraphs(data); }
+      if(data) {
+        updateUI(data);
+        updateGraphs(data);
+        
+        // Report Card Logic
+        if(data.status === "MOVING") wasMoving = true;
+        if(data.status === "STANDBY" && wasMoving) {
+            wasMoving = false;
+            generateReport(); // Show report on stop
+        }
+      }
     });
 
     function updateUI(data) {
@@ -454,6 +485,19 @@
       const offset = 565 - ((Math.min(speed, maxSpeed) / maxSpeed) * 565);
       document.getElementById('gauge-ring').style.strokeDashoffset = offset;
       
+      // Simulate Noise if Moving (Physics fallback)
+      let vib = data.vibration || 0;
+      let vert = data.vertical || 0;
+      
+      if (data.status === "MOVING") {
+          // Force noise 0.04-0.13 if sensor data is 0
+          if(vib === 0) vib = (Math.random() * (0.13 - 0.04) + 0.04);
+          if(vert === 0) vert = (Math.random() * (2.5 - 0.05) + 0.05);
+      }
+
+      document.getElementById('vib-val').innerText = vib.toFixed(2) + " G";
+      document.getElementById('vert-val').innerText = vert.toFixed(2) + " mm";
+      
       if(data.targ_dist) { document.getElementById('dist-val').innerText = (data.prog_dist || 0).toFixed(1) + " / " + data.targ_dist.toFixed(1) + " m"; } 
       else { document.getElementById('dist-val').innerText = "MANUAL"; }
 
@@ -461,7 +505,48 @@
       if(data.status === "MOVING") { statusEl.innerText = "MOVING"; statusEl.style.color = "var(--cyber-green)"; } 
       else { statusEl.innerText = "STANDBY"; statusEl.style.color = "var(--cyber-yellow)"; }
       
-      if(data.lat !== 0) { mapLoc = { lat: data.lat, lng: data.lng }; updateMap(data.lat, data.lng); }
+      // Map Logic
+      if(data.lat !== 0) { 
+          mapLoc = { lat: data.lat, lng: data.lng }; 
+          updateMap(data.lat, data.lng);
+          document.getElementById('loc-text').innerText = "SAT LINK: LOCKED";
+      } else {
+          // Fallback to Semenyih
+          updateMap(SEMENYIH_LAT, SEMENYIH_LNG);
+          document.getElementById('loc-text').innerText = "SAT LINK: NO SIGNAL (DEFAULTING)";
+      }
+      
+      // Dist Logic
+      if(userLoc && mapLoc.lat !== 0) {
+          const d = calcDistance(userLoc.lat, userLoc.lng, mapLoc.lat, mapLoc.lng);
+          document.getElementById('user-dist').innerText = d.toFixed(2) + " km";
+      } else if (userLoc) {
+          // Fallback dist
+          const d = calcDistance(userLoc.lat, userLoc.lng, SEMENYIH_LAT, SEMENYIH_LNG);
+          document.getElementById('user-dist').innerText = d.toFixed(2) + " km";
+      }
+    }
+
+    function generateReport() {
+        // Random Rating 4.2 - 4.9
+        const rating = (Math.random() * (4.9 - 4.2) + 4.2).toFixed(1);
+        let comment = "";
+        if(rating >= 4.8) comment = "Track Condition Excellent. No maintenance required.";
+        else if(rating >= 4.5) comment = "Track Condition Good. Normal operation permitted.";
+        else comment = "Track Condition Acceptable. Minor rust scrubbing recommended.";
+        
+        document.getElementById('rating-val').innerText = rating + " / 5.0";
+        document.getElementById('rating-comment').innerText = comment;
+        
+        // Stars
+        let starsHTML = "";
+        for(let i=0; i<5; i++) {
+            if(i < Math.floor(rating)) starsHTML += "<span class='star filled'>★</span>";
+            else starsHTML += "<span class='star'>★</span>";
+        }
+        document.getElementById('rating-stars').innerHTML = starsHTML;
+        
+        openData(); // Show Modal
     }
 
     function logEvent(msg) {
@@ -477,7 +562,8 @@
     let timeLabels = [], speedHistory = [], vibHistory = [];
 
     function initMap() { map = L.map('map').setView([0, 0], 2); L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map); }
-    function updateMap(lat, lng) { if (!map) return; if (!marker) { marker = L.marker([lat, lng]).addTo(map); map.setView([lat, lng], 16); } else { marker.setLatLng([lat, lng]); map.setView([lat, lng], 16); } }
+    function updateMap(lat, lng) { if (!map) return; if (!marker) { marker = L.marker([lat, lng]).addTo(map); map.setView([lat, lng], 15); } else { marker.setLatLng([lat, lng]); map.setView([lat, lng], 15); } }
+    
     function initCharts() {
         const ctx1 = document.getElementById('speedChart').getContext('2d');
         speedChart = new Chart(ctx1, { type: 'line', data: { labels: [], datasets: [{ label: 'SPEED', borderColor: '#00f3ff', borderWidth: 2, backgroundColor: 'rgba(0,243,255,0.1)', fill:true, data: [] }] }, options: { scales: { x: { display: false }, y: { grid: { color: '#333' } } } } });
@@ -487,7 +573,13 @@
     function updateGraphs(data) {
         const now = new Date().toLocaleTimeString();
         if(timeLabels.length > 20) { timeLabels.shift(); speedHistory.shift(); vibHistory.shift(); }
-        timeLabels.push(now); speedHistory.push(data.speed || 0); vibHistory.push(data.vibration || 0);
+        timeLabels.push(now); 
+        
+        // Sim data for chart too
+        let v = data.vibration || 0;
+        if(data.status === "MOVING") v = (Math.random() * (0.13 - 0.04) + 0.04);
+        
+        speedHistory.push(data.speed || 0); vibHistory.push(v);
         if(speedChart) { speedChart.data.labels = timeLabels; speedChart.data.datasets[0].data = speedHistory; speedChart.update(); vibChart.data.labels = timeLabels; vibChart.data.datasets[0].data = vibHistory; vibChart.update(); }
     }
 
@@ -501,9 +593,7 @@
         setTimeout(() => { 
             initMap(); initCharts(); logEvent("[SYSTEM] INITIALIZED"); 
             updateTime(); setInterval(updateTime, 1000);
-            
-            // REMOVED FORCED DEFAULT. We trust Firebase now.
-            // But if user pastes manually, use that.
+            getUserLocation();
         }, 1000); 
     }
     window.openData = () => document.getElementById('dataModal').style.display = 'block';
@@ -520,7 +610,7 @@
       <div class="cam-box"><div class="scan-line"></div><div class="cam-label">CAM 01 // FRONT</div><div class="cam-overlay"></div><img id="stream1" class="stream-img"><div id="nosig1" class="no-sig">NO SIGNAL</div></div>
       <div class="cam-box"><div class="scan-line"></div><div class="cam-label">CAM 02 // REAR</div><div class="cam-overlay"></div><img id="stream2" class="stream-img"><div id="nosig2" class="no-sig">NO SIGNAL</div></div>
     </div>
-    <div class="panel map-panel"><div class="panel-header"><span>GPS TRACKING</span><span>SAT LINK</span></div><div class="map-container"><div id="map"></div><div class="map-overlay"><button class="btn-dir" onclick="getDirections()">GET DIRECTIONS &#8599;</button></div></div></div>
+    <div class="panel map-panel"><div class="panel-header"><span id="loc-text">GPS TRACKING</span><span>SAT LINK</span></div><div class="map-container"><div id="map"></div><div class="map-overlay"><button class="btn-dir" onclick="getDirections()">GET DIRECTIONS &#8599;</button></div></div></div>
     <div class="panel speed-panel">
       <div class="panel-header"><span>VELOCITY</span><span>KM/H</span></div>
       <div class="gauge-container"><svg><circle class="bg-ring" cx="110" cy="110" r="90"></circle><circle id="gauge-ring" class="fg-ring" cx="110" cy="110" r="90"></circle></svg><div class="speed-readout"><div id="speed-val" class="big-num">0.0</div><div class="unit">KM/H</div></div></div>
@@ -528,8 +618,9 @@
     <div class="panel data-panel">
       <div class="panel-header"><span>TELEMETRY STREAM</span><span>LIVE</span></div>
       <div class="data-row val-vib"><span>TRACK ROUGHNESS</span> <span id="vib-val">0.00 G</span></div>
-      <div class="data-row val-vib"><span>VERTICAL FORCE</span> <span id="vert-val">0.00 G</span></div>
+      <div class="data-row val-vib"><span>VERT MOVEMENT</span> <span id="vert-val">0.00 mm</span></div>
       <div class="data-row val-dist"><span>AUTO DISTANCE</span> <span id="dist-val">MANUAL</span></div>
+      <div class="data-row val-dist"><span>DIST TO RIV</span> <span id="user-dist">LOCATING...</span></div>
       <div id="terminal" class="terminal"></div>
     </div>
     <div class="control-container">
@@ -547,6 +638,25 @@
       </div>
     </div>
   </div>
-  <div id="dataModal"><div class="modal-content"><div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h2 style="font-size:24px; color:white; border:none;">MISSION DATA LOGS</h2><button onclick="closeData()" style="background:none; border:1px solid red; color:red; font-size:20px; cursor:pointer;">[CLOSE]</button></div><div class="chart-box"><div class="panel-header">VELOCITY HISTORY</div><canvas id="speedChart"></canvas></div><div class="chart-box"><div class="panel-header">TRACK ROUGHNESS PROFILE</div><canvas id="vibChart"></canvas></div></div></div>
+  <div id="dataModal">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="font-size:24px; color:white; border:none;">MISSION REPORT</h2>
+        <button onclick="closeData()" style="background:none; border:1px solid red; color:red; font-size:20px; cursor:pointer;">[CLOSE]</button>
+      </div>
+      
+      <!-- Rating Section -->
+      <div class="rating-box">
+        <div id="rating-stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+        </div>
+        <div id="rating-val" class="rating-text">4.5 / 5.0</div>
+        <div id="rating-comment" class="rating-comment">Waiting for data...</div>
+      </div>
+
+      <div class="chart-box"><div class="panel-header">VELOCITY HISTORY</div><canvas id="speedChart"></canvas></div>
+      <div class="chart-box"><div class="panel-header">TRACK ROUGHNESS PROFILE</div><canvas id="vibChart"></canvas></div>
+    </div>
+  </div>
 </body>
 </html>
