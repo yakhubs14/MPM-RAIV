@@ -314,7 +314,7 @@
         box-shadow: none;
       }
       .control-bar { height: 80px; }
-      .nav-panel { height: auto; flex-direction: column; gap: 15px; }
+      .nav-panel { height: auto; flex-direction: row; flex-wrap: wrap; }
       .nav-row { width: 100%; }
       
       /* Make slider big on mobile */
@@ -687,10 +687,12 @@
         <h2 style="font-size:24px; color:white; border:none;">MISSION DATA LOGS</h2>
         <button onclick="closeData()" style="background:none; border:1px solid red; color:red; font-size:20px; cursor:pointer;">[CLOSE]</button>
       </div>
+      
       <div class="chart-box">
         <div class="panel-header">VELOCITY HISTORY</div>
         <canvas id="speedChart"></canvas>
       </div>
+      
       <div class="chart-box">
         <div class="panel-header">TRACK ROUGHNESS PROFILE</div>
         <canvas id="vibChart"></canvas>
