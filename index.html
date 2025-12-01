@@ -4,40 +4,37 @@
   <title>MPM-RAIV // GLOBAL COMMAND</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   
-  <!-- EXTERNAL LIBRARIES -->
+  <!-- Libraries -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- SCI-FI FONTS -->
+  <!-- Cyberpunk Font -->
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   
   <style>
-    /* --- CORE THEME VARIABLES --- */
     :root {
       --cyber-blue: #00f0ff;
       --cyber-red: #ff003c;
       --cyber-green: #05ffa1;
       --cyber-yellow: #fcee0a;
       --bg-dark: #020204;
-      --panel-bg: rgba(10, 15, 20, 0.92);
+      --panel-bg: rgba(10, 15, 20, 0.9);
       --border-glow: 0 0 15px rgba(0, 240, 255, 0.4);
-      --text-shadow: 0 0 5px rgba(255,255,255,0.5);
     }
 
-    * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+    * { box-sizing: border-box; user-select: none; }
 
-    /* --- SCROLLBARS --- */
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    /* Custom Scrollbar for Sci-Fi Feel */
+    ::-webkit-scrollbar { width: 10px; }
     ::-webkit-scrollbar-track { background: #000; border-left: 1px solid #333; }
     ::-webkit-scrollbar-thumb { background: var(--cyber-blue); border-radius: 0; }
-    ::-webkit-scrollbar-thumb:hover { background: white; box-shadow: 0 0 10px white; }
+    ::-webkit-scrollbar-thumb:hover { background: white; }
 
-    /* --- BODY & BACKGROUND --- */
     body {
       margin: 0; padding: 0;
       background-color: var(--bg-dark);
       background-image: 
-        radial-gradient(circle at 50% 50%, #1a2a3a 0%, #000 85%),
+        radial-gradient(circle at 50% 50%, #1a2a3a 0%, #000 80%),
         linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
       background-size: 100% 100%, 40px 40px, 40px 40px;
@@ -45,14 +42,8 @@
       color: white;
       min-height: 100vh; 
       display: flex; flex-direction: column;
-      overflow-x: hidden; overflow-y: auto;
-    }
-
-    /* CRT SCANLINE OVERLAY */
-    body::after {
-      content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
-      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-      z-index: 9999; background-size: 100% 2px, 3px 100%; pointer-events: none; opacity: 0.6;
+      overflow-y: auto; /* Enable vertical scroll */
+      overflow-x: hidden;
     }
 
     /* --- TOP HEADER --- */
@@ -61,329 +52,273 @@
       background: linear-gradient(90deg, #000, #0a1520, #000);
       border-bottom: 2px solid var(--cyber-blue);
       display: flex; justify-content: space-between; align-items: center;
-      padding: 0 20px;
-      box-shadow: 0 5px 25px rgba(0, 240, 255, 0.15);
-      z-index: 100; flex-shrink: 0;
+      padding: 0 15px;
+      box-shadow: 0 5px 20px rgba(0, 240, 255, 0.2);
+      z-index: 100;
+      flex-shrink: 0; 
     }
-    .brand { 
-        font-size: 22px; font-weight: 800; color: var(--cyber-blue); 
-        text-shadow: 0 0 15px var(--cyber-blue); letter-spacing: 3px; 
-        text-transform: uppercase;
-    }
+    .brand { font-size: 20px; font-weight: 800; color: var(--cyber-blue); text-shadow: 0 0 15px var(--cyber-blue); letter-spacing: 2px; }
     .status-bar { display: flex; gap: 15px; font-size: 12px; color: #888; align-items: center; }
-    .time-box { 
-        background: rgba(0, 240, 255, 0.05); border: 1px solid var(--cyber-blue); 
-        padding: 5px 10px; color: var(--cyber-blue); font-family: 'Share Tech Mono'; 
-        font-weight: bold; box-shadow: 0 0 10px rgba(0,240,255,0.1); 
-    }
-    .live-dot { 
-        width: 10px; height: 10px; background: var(--cyber-red); border-radius: 50%; 
-        display: inline-block; animation: blink 1s infinite; margin-right: 5px; 
-        box-shadow: 0 0 8px var(--cyber-red);
-    }
+    .time-box { background: rgba(0, 240, 255, 0.1); border: 1px solid var(--cyber-blue); padding: 5px 10px; color: var(--cyber-blue); font-weight: bold; box-shadow: 0 0 10px rgba(0,240,255,0.2); }
+    .live-dot { width: 8px; height: 8px; background: var(--cyber-red); border-radius: 50%; display: inline-block; animation: blink 1s infinite; margin-right: 5px; }
 
-    /* --- MAIN LAYOUT GRID --- */
+    /* --- MAIN LAYOUT --- */
     .cockpit {
       flex: 1;
       display: grid;
-      /* Desktop: Top (Video), Middle (Map/Data), Bottom (Controls) */
-      grid-template-rows: minmax(400px, auto) minmax(300px, auto) auto; 
-      grid-template-columns: 350px 1fr 350px;
-      gap: 20px;
-      padding: 20px;
-      width: 100%; max-width: 1800px; margin: 0 auto;
+      /* Desktop: Top (Video), Middle (Map/Data - Fixed Height), Bottom (Controls) */
+      grid-template-rows: minmax(400px, auto) minmax(250px, auto) auto; 
+      grid-template-columns: 320px 1fr 320px;
+      gap: 15px;
+      padding: 15px;
+      width: 100%;
+      max-width: 1600px;
+      margin: 0 auto;
     }
 
-    /* --- UNIVERSAL PANEL STYLING --- */
+    /* --- PANEL STYLING --- */
     .panel {
       background: var(--panel-bg);
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
       position: relative;
-      /* Sci-Fi Cut Corners */
-      clip-path: polygon(
-        20px 0, 100% 0, 
-        100% calc(100% - 20px), calc(100% - 20px) 100%, 
-        0 100%, 0 20px
-      );
-      box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
-      backdrop-filter: blur(10px);
+      clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.9);
+      backdrop-filter: blur(8px);
       transition: border 0.3s;
       display: flex; flex-direction: column;
     }
-    .panel:hover { border-color: rgba(0, 240, 255, 0.5); box-shadow: 0 0 20px rgba(0,240,255,0.1); }
+    .panel:hover { border-color: rgba(0, 240, 255, 0.5); }
     
-    /* Holographic Corner Accents */
-    .panel::before {
-        content: ""; position: absolute; top: 0; left: 0; width: 15px; height: 15px;
-        border-top: 2px solid var(--cyber-blue); border-left: 2px solid var(--cyber-blue);
-    }
-    .panel::after {
-        content: ""; position: absolute; bottom: 0; right: 0; width: 15px; height: 15px;
-        border-bottom: 2px solid var(--cyber-blue); border-right: 2px solid var(--cyber-blue);
-    }
-
     .panel-header {
       background: linear-gradient(90deg, rgba(0,240,255,0.1), transparent);
-      padding: 10px 20px;
-      font-size: 12px; letter-spacing: 2px;
+      padding: 8px 15px;
+      font-size: 11px;
+      letter-spacing: 2px;
       color: var(--cyber-blue);
       border-bottom: 1px solid rgba(0,240,255,0.2);
       display: flex; justify-content: space-between;
-      text-transform: uppercase; font-weight: 800;
-      text-shadow: 0 0 5px var(--cyber-blue);
+      text-transform: uppercase;
+      font-weight: 700;
+      flex-shrink: 0;
     }
 
-    /* --- VIDEO MODULE --- */
+    /* --- VIDEO FEEDS --- */
     .video-section {
       grid-column: 1 / -1; grid-row: 1 / 2;
-      display: flex; gap: 20px;
-      min-height: 400px;
+      display: flex; gap: 15px;
+      min-height: 400px; 
     }
     .cam-box {
       flex: 1;
       background: #000;
       position: relative;
       display: flex; justify-content: center; align-items: center;
-      border: 1px solid #333;
+      border: 2px solid #222;
       overflow: hidden;
-      box-shadow: 0 0 30px rgba(0,0,0,0.8);
+      box-shadow: 0 0 20px rgba(0,0,0,0.8);
     }
     .stream-img { width: 100%; height: 100%; object-fit: contain; display: none; }
-    
     .cam-label {
-      position: absolute; top: 15px; left: 15px;
+      position: absolute; top: 10px; left: 10px;
       background: rgba(0,0,0,0.8); color: var(--cyber-red);
-      padding: 4px 10px; font-weight: bold; border: 1px solid var(--cyber-red);
-      font-size: 11px; letter-spacing: 1px; z-index: 10;
-      box-shadow: 0 0 10px var(--cyber-red);
+      padding: 4px 8px; font-weight: bold; border: 1px solid var(--cyber-red);
+      font-size: 10px; letter-spacing: 1px;
     }
     .scan-line {
       position: absolute; top: 0; left: 0; width: 100%; height: 2px;
       background: rgba(0, 240, 255, 0.8);
       box-shadow: 0 0 15px var(--cyber-blue);
-      animation: scan 3s linear infinite;
-      z-index: 5;
+      animation: scan 4s linear infinite;
+      z-index: 10;
     }
-    .no-sig { 
-        color: #444; font-size: 18px; letter-spacing: 5px; 
-        font-weight: 900; animation: textFlicker 3s infinite; 
-    }
+    .no-sig { color: #444; font-size: 14px; letter-spacing: 3px; animation: textFlicker 3s infinite; }
 
-    /* --- MAP MODULE --- */
+    /* --- MAP --- */
     .map-panel { 
       grid-column: 1 / 2; grid-row: 2 / 3; 
+      display: flex; flex-direction: column; 
       border: 1px solid var(--cyber-green);
-      box-shadow: 0 0 15px rgba(5, 255, 161, 0.1);
+      box-shadow: 0 0 10px rgba(5, 255, 161, 0.1);
     }
     .map-container { flex: 1; position: relative; overflow: hidden; margin: 10px; border: 1px solid #333; }
-    #map { width: 100%; height: 100%; /* No Filters = Standard Street Map */ } 
+    #map { width: 100%; height: 100%; filter: grayscale(100%) invert(100%) contrast(1.3); }
     
     .map-overlay { position: absolute; bottom: 10px; right: 10px; z-index: 999; }
     .btn-dir {
       background: var(--cyber-green); color: black; border: none;
-      padding: 10px 15px; font-weight: bold; font-family: 'Oxanium';
+      padding: 8px 12px; font-weight: bold; font-family: 'Oxanium';
       cursor: pointer; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
-      box-shadow: 0 0 15px var(--cyber-green);
+      box-shadow: 0 0 10px var(--cyber-green);
       transition: 0.2s;
     }
-    .btn-dir:hover { transform: scale(1.1); filter: brightness(1.2); }
+    .btn-dir:hover { transform: scale(1.05); filter: brightness(1.2); }
 
-    /* --- SPEEDOMETER MODULE --- */
+    /* --- SPEEDOMETER & SLIDER --- */
     .speed-panel { 
       grid-column: 2 / 3; grid-row: 2 / 3; 
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      border-top: 3px solid var(--cyber-blue);
+      border-top: 4px solid var(--cyber-blue);
     }
-    .gauge-container { position: relative; width: 240px; height: 240px; margin-top: 10px; }
+    .gauge-container { position: relative; width: 200px; height: 200px; margin-top: 10px; }
     svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-    circle { fill: none; stroke-width: 18; stroke-linecap: butt; }
-    .bg-ring { stroke: rgba(255,255,255,0.05); }
-    .fg-ring { 
-        stroke: var(--cyber-blue); stroke-dasharray: 600; stroke-dashoffset: 600; 
-        transition: stroke-dashoffset 0.3s ease-out; filter: drop-shadow(0 0 10px var(--cyber-blue));
-    }
+    circle { fill: none; stroke-width: 12; stroke-linecap: round; }
+    .bg-ring { stroke: #222; }
+    .fg-ring { stroke: var(--cyber-blue); stroke-dasharray: 565; stroke-dashoffset: 565; transition: stroke-dashoffset 0.3s; filter: drop-shadow(0 0 15px var(--cyber-blue)); }
     
     .speed-readout {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       text-align: center;
     }
-    .big-num { 
-        font-size: 72px; font-weight: 800; color: white; line-height: 1; 
-        text-shadow: 0 0 30px rgba(0, 240, 255, 0.8); font-family: 'Share Tech Mono'; 
-    }
-    .unit { font-size: 16px; color: var(--cyber-blue); letter-spacing: 3px; margin-top: 5px; }
+    .big-num { font-size: 64px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 0 25px rgba(0, 240, 255, 0.6); }
+    .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; }
 
-    /* --- TELEMETRY MODULE --- */
-    .data-panel { grid-column: 3 / 4; grid-row: 2 / 3; gap: 10px; font-size: 14px; }
+    /* HIDDEN SPEED CONTROL */
+    #speed-control-container {
+        display: none; /* Hidden until login */
+        width: 80%; margin-top: 20px;
+        animation: slideDown 0.5s ease-out;
+    }
+    .spd-slider { 
+        width: 100%; -webkit-appearance: none; height: 8px; 
+        background: #333; border-radius: 4px; outline: none; 
+    }
+    .spd-slider::-webkit-slider-thumb { 
+        -webkit-appearance: none; width: 22px; height: 22px; 
+        background: var(--cyber-yellow); border-radius: 50%; cursor: pointer; 
+        box-shadow: 0 0 10px var(--cyber-yellow); border: 2px solid white;
+    }
+    .spd-label { text-align: center; color: var(--cyber-yellow); font-size: 14px; margin-top: 5px; font-weight: bold; font-family: 'Share Tech Mono'; }
+
+    /* --- TELEMETRY --- */
+    .data-panel { grid-column: 3 / 4; grid-row: 2 / 3; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
     .data-row { 
       display: flex; justify-content: space-between; align-items: center; 
-      background: linear-gradient(90deg, rgba(255,255,255,0.03), transparent); 
-      padding: 12px 15px; border-left: 3px solid #444;
+      background: rgba(255,255,255,0.02); padding: 8px 12px; border-left: 2px solid #444;
     }
-    .data-row span:last-child { font-weight: bold; font-size: 16px; font-family: 'Share Tech Mono'; }
-    
+    .data-row span:last-child { font-weight: bold; font-size: 15px; }
     .val-vib { color: var(--cyber-yellow); border-left-color: var(--cyber-yellow); }
     .val-dist { color: var(--cyber-green); border-left-color: var(--cyber-green); }
     
     .terminal {
       flex: 1; background: #000; border: 1px solid #333; padding: 10px;
-      font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--cyber-green);
+      font-family: monospace; font-size: 10px; color: var(--cyber-green);
       overflow-y: auto; opacity: 0.9;
-      box-shadow: inset 0 0 20px rgba(0,255,0,0.1);
+      box-shadow: inset 0 0 10px rgba(0,255,0,0.1);
     }
 
-    /* --- LOCKED CONTROLS (SECURITY) --- */
+    /* --- BOTTOM CONTROLS --- */
+    .control-container {
+      grid-column: 1 / -1; grid-row: 3 / 4;
+      display: flex; gap: 15px;
+      padding-bottom: 20px;
+    }
+    
+    /* LOCKED OVERLAY */
     #locked-panel {
         grid-column: 1 / -1; grid-row: 3 / 4;
         display: flex; justify-content: center; align-items: center; flex-direction: column;
-        background: repeating-linear-gradient(
-            45deg, rgba(255, 0, 60, 0.05), rgba(255, 0, 60, 0.05) 10px,
-            rgba(255, 0, 60, 0.1) 10px, rgba(255, 0, 60, 0.1) 20px
-        );
+        background: repeating-linear-gradient(45deg, rgba(255, 0, 60, 0.05), rgba(255, 0, 60, 0.05) 10px, rgba(255, 0, 60, 0.1) 10px, rgba(255, 0, 60, 0.1) 20px);
         border: 2px dashed var(--cyber-red);
-        padding: 40px; cursor: pointer;
-        text-align: center;
+        padding: 40px; cursor: pointer; text-align: center;
         transition: 0.3s; animation: pulseRed 3s infinite;
     }
     #locked-panel:hover { background: rgba(255, 0, 60, 0.2); letter-spacing: 2px; }
     .lock-icon { font-size: 40px; margin-bottom: 10px; display: block; text-shadow: 0 0 20px var(--cyber-red); }
     .lock-text { font-size: 24px; font-weight: 800; color: var(--cyber-red); text-shadow: 0 0 10px var(--cyber-red); }
 
-    /* --- UNLOCKED CONTROLS --- */
-    #control-container {
-      display: none; /* Hidden until login */
-      grid-column: 1 / -1; grid-row: 3 / 4;
-      gap: 20px; padding-bottom: 20px;
-      animation: slideUp 0.5s ease-out;
-    }
-    @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    #control-container { display: none; } /* Hidden until login */
 
     /* NAV SETTINGS (Left) */
     .nav-panel {
       flex: 1.2;
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.6);
       border: 1px solid var(--cyber-blue);
-      padding: 15px;
+      padding: 10px;
       display: flex; flex-direction: column; justify-content: space-between;
       clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 20px);
-      box-shadow: 0 0 20px rgba(0, 243, 255, 0.1);
     }
     
     .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; font-size: 12px; }
     select {
-      background: #050505; color: white; border: 1px solid var(--cyber-blue);
-      padding: 10px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none; text-transform: uppercase;
+      background: #000; color: white; border: 1px solid var(--cyber-blue);
+      padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none; text-transform: uppercase;
     }
 
     /* Expandable Cam Link */
-    #cam-config-area { display: none; margin-top: 10px; animation: slideDown 0.3s ease; }
+    #cam-config-area { display: none; margin-top: 5px; animation: slideDown 0.3s ease; }
     input[type=text] {
       background: #111; color: var(--cyber-red); border: 1px solid var(--cyber-red);
-      padding: 8px; font-family: 'Share Tech Mono'; font-size: 12px; width: 100%; outline: none;
+      padding: 5px; font-family: 'Oxanium'; font-size: 12px; width: 100%; outline: none;
     }
     @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* SLIDER STYLING */
-    .slider-container { width: 100%; display: flex; align-items: center; gap: 15px; opacity: 0.3; transition: 0.3s; pointer-events: none; margin-top: 10px; }
-    .slider-active { opacity: 1; pointer-events: auto; }
-    
-    input[type=range] { 
-      flex: 1; -webkit-appearance: none; height: 12px; background: #222; outline: none; border-radius: 6px; border: 1px solid #444; 
-    }
+    /* NAV SLIDER STYLING */
+    .slider-container { width: 100%; display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+    input[type=range] { flex: 1; -webkit-appearance: none; height: 10px; background: #222; outline: none; border-radius: 5px; border: 1px solid #444; }
     input[type=range]::-webkit-slider-thumb { 
-      -webkit-appearance: none; width: 28px; height: 28px; 
-      background: var(--cyber-blue); cursor: pointer; border-radius: 0; 
-      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-      box-shadow: 0 0 15px var(--cyber-blue); transform: scale(1.2); margin-top: -2px;
+      -webkit-appearance: none; width: 24px; height: 24px; 
+      background: var(--cyber-blue); cursor: pointer; border-radius: 50%; 
+      box-shadow: 0 0 15px var(--cyber-blue); border: 2px solid white;
     }
-    .slider-val { 
-      width: 90px; text-align: right; color: var(--cyber-blue); 
-      font-weight: bold; font-size: 22px; font-family: 'Share Tech Mono';
-      background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 4px;
-    }
+    .slider-val { width: 80px; text-align: right; color: var(--cyber-blue); font-weight: bold; font-size: 18px; }
 
     /* BUTTONS (Right) */
-    .control-bar { flex: 2; display: flex; gap: 15px; }
+    .control-bar { flex: 2; display: flex; gap: 10px; }
     .btn {
       flex: 1; border: none; outline: none;
-      font-family: 'Oxanium'; font-size: 24px; font-weight: 800; letter-spacing: 2px;
+      font-family: 'Oxanium'; font-size: 22px; font-weight: 800; letter-spacing: 2px;
       cursor: pointer; position: relative; overflow: hidden;
       transition: all 0.15s;
-      clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+      clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
       text-transform: uppercase;
       display: flex; align-items: center; justify-content: center;
     }
-    
-    /* Button Glazing Effect */
-    .btn::before {
-      content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      animation: shine 3s infinite; pointer-events: none;
-    }
-    @keyframes shine { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
+    .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); box-shadow: 0 0 15px rgba(5, 255, 161, 0.1); }
+    .btn-fwd:active { background: var(--cyber-green); color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
 
-    .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); text-shadow: 0 0 10px var(--cyber-green); }
-    .btn-fwd:active { background: white; color: black; box-shadow: 0 0 50px var(--cyber-green); transform: translateY(2px); }
+    .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); box-shadow: 0 0 15px rgba(255, 0, 60, 0.1); }
+    .btn-stop:active { background: var(--cyber-red); color: white; box-shadow: 0 0 40px var(--cyber-red); transform: translateY(2px); }
 
-    .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); text-shadow: 0 0 10px var(--cyber-red); }
-    .btn-stop:active { background: white; color: black; box-shadow: 0 0 50px var(--cyber-red); transform: translateY(2px); }
-
-    .btn-bwd { background: rgba(252, 238, 10, 0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); text-shadow: 0 0 10px var(--cyber-yellow); }
-    .btn-bwd:active { background: white; color: black; box-shadow: 0 0 50px var(--cyber-yellow); transform: translateY(2px); }
+    .btn-bwd { background: rgba(252, 238, 10, 0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); box-shadow: 0 0 15px rgba(252, 238, 10, 0.1); }
+    .btn-bwd:active { background: var(--cyber-yellow); color: black; box-shadow: 0 0 30px var(--cyber-yellow); transform: translateY(2px); }
 
     .btn-config { 
         background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); 
-        font-size: 11px; padding: 6px; cursor: pointer; width: 100%; margin-top: 10px; transition: 0.3s; font-weight: bold;
+        font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s;
     }
     .btn-config:hover { background: var(--cyber-red); color: white; }
 
-    .btn-data { flex: 0.4; background: rgba(0, 240, 255, 0.15); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 16px; }
+    .btn-data { flex: 0.4; background: rgba(0, 240, 255, 0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
     .btn-data:hover { background: var(--cyber-blue); color: black; }
 
     /* --- RESPONSIVE --- */
-    @media (min-width: 1025px) {
-      .cockpit {
-        grid-template-columns: 350px 1fr 350px;
-        grid-template-rows: auto auto auto;
-      }
-    }
+    @media (min-width: 1025px) { .cockpit { grid-template-columns: 320px 1fr 320px; grid-template-rows: auto auto auto; } }
     @media (max-width: 1024px) { 
-      .cockpit { 
-        grid-template-columns: 1fr 1fr; 
-        grid-template-rows: auto auto auto auto;
-      }
+      .cockpit { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto; }
       .video-section { grid-column: 1 / -1; grid-row: 1; height: 350px; }
-      .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 280px; }
-      .data-panel { grid-column: 2 / 3; grid-row: 2; height: 280px; }
-      .map-panel { grid-column: 1 / -1; grid-row: 3; height: 350px; }
+      .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 250px; }
+      .data-panel { grid-column: 2 / 3; grid-row: 2; height: 250px; }
+      .map-panel { grid-column: 1 / -1; grid-row: 3; height: 300px; }
       #locked-panel, #control-container { grid-column: 1 / -1; grid-row: 4; flex-direction: column; height: auto; }
-      .nav-panel { height: auto; padding: 15px; } 
-      .control-bar { height: 100px; }
+      .nav-panel { height: auto; padding: 15px; } .control-bar { height: 90px; }
     }
     @media (max-width: 600px) { 
       .cockpit { display: flex; flex-direction: column; height: auto; gap: 20px; padding-bottom: 40px; }
       .video-section { flex-direction: column; height: auto; gap: 15px; } .cam-box { height: 250px; }
       .map-panel { height: 300px !important; min-height: 300px; display: flex; }
-      
-      #locked-panel, #control-container { 
-        width: 100%; margin-top: 10px;
-        background: transparent; border:none; box-shadow: none;
-      }
-      /* Flex to stack mobile controls */
-      #control-container { display: none; flex-direction: column; gap: 15px; }
-      
-      .control-bar { height: 100px; }
-      /* Prevent text crop on mobile buttons */
-      .btn { font-size: 18px; clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); }
+      #locked-panel, #control-container { width: 100%; background: transparent; border-top: none; padding: 0; z-index: 1; flex-direction: column; gap: 10px; box-shadow: none; }
+      #control-container { display: none; } /* Hidden by default */
+      .control-bar { height: 90px; }
+      .btn { clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); font-size: 18px; }
       .nav-panel { height: auto; flex-direction: column; gap: 10px; } .nav-row { width: 100%; }
     }
 
-    /* MODALS */
+    /* Modals */
     #dataModal, #loginModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; padding: 20px; overflow-y: auto; justify-content: center; align-items: center; }
-    .modal-content { max-width: 800px; margin: 40px auto; color: white; border: 2px solid var(--cyber-blue); padding: 25px; background: #080a10; box-shadow: 0 0 60px var(--cyber-blue); }
+    .modal-content { max-width: 800px; margin: 40px auto; color: white; border: 1px solid var(--cyber-blue); padding: 20px; background: #111; box-shadow: 0 0 30px var(--cyber-blue); }
     .chart-box { background: #000; border: 1px solid #333; padding: 10px; margin-bottom: 20px; }
     
-    /* LOGIN BOX */
+    /* Login Box */
     .login-box { background: #050505; border: 2px solid var(--cyber-red); padding: 40px; text-align: center; box-shadow: 0 0 40px var(--cyber-red); width: 100%; max-width: 400px; }
     .login-input { width: 100%; background: #111; border: 1px solid #444; padding: 15px; color: white; margin: 10px 0; font-family: 'Oxanium'; font-size: 18px; outline: none; text-align: center; transition: 0.3s; }
     .login-input:focus { border-color: var(--cyber-red); box-shadow: 0 0 10px var(--cyber-red); }
@@ -394,8 +329,8 @@
     .rating-box { text-align:center; padding: 20px; border: 1px dashed var(--cyber-yellow); margin-bottom: 20px; background: rgba(255,200,0,0.05); }
     .star { font-size: 40px; color: #444; }
     .star.filled { color: var(--cyber-yellow); text-shadow: 0 0 10px var(--cyber-yellow); }
-    .rating-text { font-size: 28px; font-weight: bold; margin-top: 10px; color: white; font-family: 'Share Tech Mono'; }
-    .rating-comment { font-size: 18px; color: #aaa; margin-top: 5px; font-style: italic; }
+    .rating-text { font-size: 24px; font-weight: bold; margin-top: 10px; color: white; }
+    .rating-comment { font-size: 16px; color: #aaa; margin-top: 5px; font-style: italic; }
 
     @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
     @keyframes blink { 50% { opacity: 0; } }
@@ -405,9 +340,8 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, set, onValue, push, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    // --- FIREBASE CONFIG (YOUR PROJECT) ---
     const firebaseConfig = {
       apiKey: "AIzaSyD69TabKnrT2AnF3ck6B1gHx5BlVNwYmXs",
       authDomain: "mpm-raiv.firebaseapp.com",
@@ -422,18 +356,18 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let navMode = "hold"; let sliderValue = 0.5; let mapLoc = { lat: 0, lng: 0 };
+    // DEFAULT: Meters
+    let navMode = "meters"; 
+    let sliderValue = 0.5; 
+    let mapLoc = { lat: 0, lng: 0 };
     let userLoc = null;
     
-    // DEFAULT FALLBACK: Semenyih
     const SEMENYIH_LAT = 2.958196;
     const SEMENYIH_LNG = 101.823593;
     const DEFAULT_CAM_URL = "https://preceding-headlines-directories-clearance.trycloudflare.com";
 
     // --- 1. LOGIN SYSTEM ---
-    window.openLogin = function() {
-        document.getElementById('loginModal').style.display = 'flex';
-    }
+    window.openLogin = function() { document.getElementById('loginModal').style.display = 'flex'; }
     
     window.performLogin = function() {
         const u = document.getElementById('user').value;
@@ -442,17 +376,27 @@
         if(u === "admin" && p === "admin") {
             document.getElementById('loginModal').style.display = 'none';
             document.getElementById('locked-panel').style.display = 'none';
-            // Unlock controls
             const controls = document.getElementById('control-container');
             controls.style.display = 'flex'; 
+            
+            // Unlock Speed Slider
+            document.getElementById('speed-control-container').style.display = 'block';
+            
             logEvent("[AUTH] ACCESS GRANTED");
         } else {
-            alert("ACCESS DENIED: INVALID CREDENTIALS");
+            alert("INVALID CREDENTIALS");
             logEvent("[AUTH] ACCESS DENIED");
         }
     }
+    
+    // --- SPEED CONTROL ---
+    window.updateSpeed = function(val) {
+        const pct = parseInt(val);
+        document.getElementById('spd-lbl').innerText = "THROTTLE: " + pct + "%";
+        update(ref(db), { "speed_factor": pct });
+    }
 
-    // --- 2. USER GPS ---
+    // --- USER GPS ---
     function getUserLocation() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((position) => {
@@ -464,7 +408,6 @@
         }
     }
 
-    // --- 3. DISTANCE CALC ---
     function calcDistance(lat1, lon1, lat2, lon2) {
       if (!lat1 || !lat2) return 0;
       var R = 6371; 
@@ -476,13 +419,13 @@
     }
     function deg2rad(deg) { return deg * (Math.PI/180); }
 
-    // --- 4. CAM SYNC ---
+    // --- CAM SYNC ---
     const camUrlRef = ref(db, 'cam_url');
     onValue(camUrlRef, (snapshot) => {
       const rawUrl = snapshot.val();
       if(rawUrl) {
         const url = rawUrl.trim().replace(/['"]+/g, '');
-        logEvent("[SYS] LINK RECV: " + url.substring(8, 20) + "...");
+        logEvent("[SYS] LINK: " + url.substring(8, 20) + "...");
         if(document.getElementById('cam-url').value === "") {
             document.getElementById('cam-url').value = url;
             connectCams(url);
@@ -492,7 +435,7 @@
       }
     });
 
-    // --- 5. NAV LOGIC ---
+    // --- NAV LOGIC ---
     window.updateNavMode = function() {
       navMode = document.getElementById('move-mode').value;
       const sliderCont = document.getElementById('slider-cont');
@@ -500,11 +443,13 @@
       const valDisp = document.getElementById('slider-val');
       
       if (navMode === "hold") {
-        sliderCont.classList.remove('slider-active');
+        sliderCont.style.opacity = 0.3;
+        sliderCont.style.pointerEvents = "none";
         valDisp.innerText = "N/A";
       } else {
-        sliderCont.classList.add('slider-active');
-        if (navMode === "meters") { slider.min = "0.5"; slider.max = "10"; slider.step = "0.5"; slider.value = "0.5"; valDisp.innerText = "0.5 m"; } 
+        sliderCont.style.opacity = 1;
+        sliderCont.style.pointerEvents = "auto";
+        if (navMode === "meters") { slider.min = "0.5"; slider.max = "5"; slider.step = "0.5"; slider.value = "0.5"; valDisp.innerText = "0.5 m"; } 
         else if (navMode === "km") { slider.min = "1"; slider.max = "20"; slider.step = "1"; slider.value = "1"; valDisp.innerText = "1 km"; }
         sliderValue = parseFloat(slider.value);
         updateSlider(slider.value);
@@ -541,7 +486,6 @@
         area.style.display = area.style.display === 'block' ? 'none' : 'block';
     }
 
-    // --- 6. BUTTON HANDLERS ---
     window.handlePress = function(dir, e) {
       if(e && e.cancelable) e.preventDefault();
       if (navMode === "hold") { sendCommand(dir); } 
@@ -567,12 +511,8 @@
         window.open(`https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLng}`, '_blank');
     }
 
-    // --- 7. TELEMETRY & LOGGING ---
-    let isMoving = false;
-    let startTime = null;
-    let maxSpeed = 0;
-    let maxRoughness = 0;
-
+    // --- TELEMETRY ---
+    let wasMoving = false;
     const telemetryRef = ref(db, 'telemetry');
     onValue(telemetryRef, (snapshot) => {
       const data = snapshot.val();
@@ -580,73 +520,41 @@
         updateUI(data);
         updateGraphs(data);
         
-        const spd = data.speed || 0;
-        const vib = data.vibration || 0;
-
-        // Mission Logic
-        if(data.status === "MOVING") {
-            if(!isMoving) {
-                isMoving = true;
-                startTime = new Date();
-                maxSpeed = 0; maxRoughness = 0;
-                logEvent("[SYS] MISSION STARTED");
+        // Report Card Logic
+        if(data.status === "MOVING") wasMoving = true;
+        if(data.status === "STANDBY" && wasMoving) {
+            wasMoving = false;
+            generateReport(); 
+            
+            // --- FIX FOR LOOPING ---
+            // Force reset command to STOP on cloud if in distance mode
+            if(navMode !== "hold") {
+                sendCommand('STOP');
             }
-            if(spd > maxSpeed) maxSpeed = spd;
-            if(vib > maxRoughness) maxRoughness = vib;
-        } 
-        else if(data.status === "STANDBY" && isMoving) {
-            isMoving = false;
-            logEvent("[SYS] MISSION COMPLETE");
-            saveLog(new Date());
-            generateReport();
         }
       }
     });
 
-    function saveLog(stopTime) {
-        if(!startTime) return;
-        const dur = ((stopTime - startTime) / 1000).toFixed(1);
-        const logData = {
-            start: startTime.toLocaleString(),
-            stop: stopTime.toLocaleString(),
-            duration: dur,
-            max_speed: maxSpeed.toFixed(1),
-            max_roughness: maxRoughness.toFixed(2),
-            ts: Date.now()
-        };
-        push(ref(db, 'mission_logs'), logData);
-    }
-
-    window.showLogs = function() {
-        document.getElementById('logsModal').style.display = 'flex';
-        const tbody = document.getElementById('logsBody');
-        tbody.innerHTML = "<tr><td colspan='5'>Loading cloud data...</td></tr>";
-        onValue(ref(db, 'mission_logs'), (snap) => {
-            tbody.innerHTML = "";
-            const logs = [];
-            snap.forEach(c => logs.unshift(c.val()));
-            if(logs.length===0) { tbody.innerHTML="<tr><td colspan='5'>No History</td></tr>"; return; }
-            logs.forEach(l => {
-                tbody.innerHTML += `<tr><td>${l.start}</td><td>${l.duration}s</td><td style="color:cyan">${l.max_speed}</td><td style="color:yellow">${l.max_roughness}</td><td>OK</td></tr>`;
-            });
-        }, {onlyOnce:true});
-    }
-
     function updateUI(data) {
       const speed = data.speed || 0;
       document.getElementById('speed-val').innerText = speed.toFixed(1);
-      const maxSpeed = 20;
-      const offset = 565 - ((Math.min(speed, maxSpeed) / maxSpeed) * 565);
+      const offset = 565 - ((Math.min(speed, 20) / 20) * 565);
       document.getElementById('gauge-ring').style.strokeDashoffset = offset;
       
-      // Simulate Noise
+      // Simulate Noise if Moving (Physics fallback)
       let vib = data.vibration || 0;
       let vert = data.vertical || 0;
+      
       if (data.status === "MOVING") {
+          // ECG Jitter Effect
+          let jitterVib = (Math.random() - 0.5) * 0.02; 
+          let jitterVert = (Math.random() - 0.5) * 0.1;
+          
           if(vib === 0) vib = (Math.random() * (0.13 - 0.04) + 0.04);
-          else vib += (Math.random() - 0.5) * 0.05; 
+          else vib += jitterVib;
+          
           if(vert === 0) vert = (Math.random() * (2.5 - 0.05) + 0.05);
-          else vert += (Math.random() - 0.5) * 0.1;
+          else vert += jitterVert;
       }
 
       document.getElementById('vib-val').innerText = Math.abs(vib).toFixed(2) + " G";
@@ -659,15 +567,13 @@
       if(data.status === "MOVING") { statusEl.innerText = "MOVING"; statusEl.style.color = "var(--cyber-green)"; } 
       else { statusEl.innerText = "STANDBY"; statusEl.style.color = "var(--cyber-yellow)"; }
       
-      // MAP LOGIC: Always show Semenyih if 0, else show real
+      // Map Logic - Immediate update
       let displayLat = SEMENYIH_LAT;
       let displayLng = SEMENYIH_LNG;
       let statusText = "SAT LINK: NO SIGNAL";
       
       if(data.lat && data.lat !== 0) { 
-          displayLat = data.lat;
-          displayLng = data.lng;
-          statusText = "SAT LINK: LOCKED";
+          displayLat = data.lat; displayLng = data.lng; statusText = "SAT LINK: LOCKED";
       }
       
       mapLoc = { lat: displayLat, lng: displayLng };
@@ -697,7 +603,7 @@
         }
         document.getElementById('rating-stars').innerHTML = starsHTML;
         
-        openData(); 
+        openData(); // Show Modal
     }
 
     function logEvent(msg) {
@@ -709,31 +615,41 @@
       if(term.children.length > 20) term.lastChild.remove();
     }
 
-    // --- INITIALIZATION ---
     let map, marker, speedChart, vibChart;
     let timeLabels = [], speedHistory = [], vibHistory = [];
 
     function initMap() { 
       // INITIAL ZOOM 10 - STREET MAP
       map = L.map('map').setView([SEMENYIH_LAT, SEMENYIH_LNG], 10); 
-      // OpenStreetMap (Standard Street View)
+      // STANDARD OSM TILES (Street Map Style)
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
       
-      // Initial Marker
+      // Initial Marker - RED DOT
       marker = L.circleMarker([SEMENYIH_LAT, SEMENYIH_LNG], {
-            color: 'red', fillColor: '#f03', fillOpacity: 1, radius: 10, weight: 3
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 1,
+            radius: 10,
+            weight: 3
       }).addTo(map);
     }
     
     function updateMap(lat, lng) { 
         if (!map) return; 
         if (marker) map.removeLayer(marker);
+        
+        // Red Pulsing Dot Marker
         marker = L.circleMarker([lat, lng], {
-            color: 'red', fillColor: '#f03', fillOpacity: 1, radius: 10, weight: 3
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 1,
+            radius: 10,
+            weight: 3
         }).addTo(map);
-        // Auto-Zoom to 18 when updated
+        
+        // Auto Zoom to Location
         map.setView([lat, lng], 18); 
     }
     
@@ -743,16 +659,19 @@
         const ctx2 = document.getElementById('vibChart').getContext('2d');
         vibChart = new Chart(ctx2, { type: 'line', data: { labels: [], datasets: [{ label: 'ROUGHNESS', borderColor: '#fcee0a', borderWidth: 2, backgroundColor: 'rgba(252,238,10,0.1)', fill:true, data: [] }] }, options: { scales: { x: { display: false }, y: { grid: { color: '#333' } } } } });
     }
+    
     function updateGraphs(data) {
         const now = new Date().toLocaleTimeString();
         if(timeLabels.length > 20) { timeLabels.shift(); speedHistory.shift(); vibHistory.shift(); }
         timeLabels.push(now); 
         
+        // Sim data for chart with Jitter
         let v = data.vibration || 0;
         if(data.status === "MOVING") {
              if (v === 0) v = (Math.random() * (0.13 - 0.04) + 0.04);
              v += (Math.random() - 0.5) * 0.05; 
         }
+        
         speedHistory.push(data.speed || 0); vibHistory.push(v);
         if(speedChart) { speedChart.data.labels = timeLabels; speedChart.data.datasets[0].data = speedHistory; speedChart.update(); vibChart.data.labels = timeLabels; vibChart.data.datasets[0].data = vibHistory; vibChart.update(); }
     }
@@ -769,10 +688,13 @@
             updateTime(); setInterval(updateTime, 1000);
             getUserLocation();
             
-            // Default cam link
+            // Initialize UI to Default (Meters)
+            document.getElementById('move-mode').value = "meters";
+            updateNavMode();
+            
+            const DEFAULT_CAM_URL = "https://preceding-headlines-directories-clearance.trycloudflare.com";
             if(document.getElementById('cam-url').value === "") {
                document.getElementById('cam-url').value = DEFAULT_CAM_URL;
-               // connectCams();
             }
         }, 1000); 
     }
@@ -799,10 +721,17 @@
       <div class="map-container"><div id="map"></div><div class="map-overlay"><button class="btn-dir" onclick="getDirections()">GET DIRECTIONS &#8599;</button></div></div>
     </div>
 
-    <!-- SPEED -->
+    <!-- SPEED & SLIDER -->
     <div class="panel speed-panel">
-      <div class="panel-header"><span>SPEED</span><span>KM/H</span></div>
+      <div class="panel-header"><span>SPEED CONTROL</span><span>KM/H</span></div>
       <div class="gauge-container"><svg><circle class="bg-ring" cx="100" cy="100" r="80"></circle><circle id="gauge-ring" class="fg-ring" cx="100" cy="100" r="80"></circle></svg><div class="speed-readout"><div id="speed-val" class="big-num">0.0</div><div class="unit">KM/H</div></div></div>
+      
+      <!-- NEW: SPEED SLIDER (HIDDEN UNTIL LOGIN) -->
+      <div id="speed-control-container" style="display:none; width:80%; margin-top:20px; animation: slideDown 0.5s ease-out;">
+        <div class="spd-label">THROTTLE CONTROL</div>
+        <input type="range" class="spd-slider" min="25" max="200" value="100" oninput="updateSpeed(this.value)">
+        <div id="spd-lbl" class="spd-label" style="color:var(--cyber-blue); font-size:16px;">100%</div>
+      </div>
     </div>
 
     <!-- DATA -->
@@ -857,11 +786,16 @@
         <h2 style="font-size:24px; color:white; border:none;">MISSION REPORT</h2>
         <button onclick="closeData()" style="background:none; border:1px solid red; color:red; font-size:20px; cursor:pointer;">[CLOSE]</button>
       </div>
+      
+      <!-- Rating Section -->
       <div class="rating-box">
-        <div id="rating-stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
+        <div id="rating-stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+        </div>
         <div id="rating-val" class="rating-text">4.5 / 5.0</div>
         <div id="rating-comment" class="rating-comment">Waiting for data...</div>
       </div>
+
       <div class="chart-box"><div class="panel-header">VELOCITY HISTORY</div><canvas id="speedChart"></canvas></div>
       <div class="chart-box"><div class="panel-header">TRACK ROUGHNESS PROFILE</div><canvas id="vibChart"></canvas></div>
     </div>
