@@ -4,296 +4,345 @@
   <title>MPM-RAIV // GLOBAL COMMAND</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   
-  <!-- Libraries -->
+  <!-- EXTERNAL LIBRARIES -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Cyberpunk Font -->
+  <!-- FONTS: 'Oxanium' for UI, 'Share Tech Mono' for Data -->
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   
   <style>
+    /* --- CORE VARIABLES & THEME --- */
     :root {
       --cyber-blue: #00f0ff;
       --cyber-red: #ff003c;
       --cyber-green: #05ffa1;
       --cyber-yellow: #fcee0a;
       --bg-dark: #020204;
-      --panel-bg: rgba(8, 12, 16, 0.85);
+      --panel-bg: rgba(10, 15, 20, 0.9);
+      --border-glow: 0 0 15px rgba(0, 240, 255, 0.4);
     }
 
     * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
 
-    /* --- CRT & SCANLINE FX --- */
-    body::before {
-      content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
-      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-      z-index: 9999; background-size: 100% 2px, 3px 100%; pointer-events: none;
-    }
-    @keyframes crt-flicker { 0% { opacity: 0.97; } 5% { opacity: 0.95; } 10% { opacity: 0.9; } 15% { opacity: 0.95; } 100% { opacity: 0.97; } }
-
     /* Custom Scrollbar */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #000; }
-    ::-webkit-scrollbar-thumb { background: var(--cyber-blue); }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #000; border-left: 1px solid #333; }
+    ::-webkit-scrollbar-thumb { background: var(--cyber-blue); border-radius: 0; }
+    ::-webkit-scrollbar-thumb:hover { background: white; }
 
     body {
       margin: 0; padding: 0;
       background-color: var(--bg-dark);
-      /* Moving 3D Grid */
+      /* Advanced Grid Background */
       background-image: 
-        linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
-      background-size: 50px 50px;
-      background-position: center 0;
-      animation: gridMove 20s linear infinite;
+        radial-gradient(circle at 50% 50%, #1a2a3a 0%, #000 80%),
+        linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 40px 40px, 40px 40px;
       font-family: 'Oxanium', cursive;
       color: white;
-      height: 100vh;
-      height: 100dvh; /* Mobile viewport fix */
+      min-height: 100vh; 
       display: flex; flex-direction: column;
       overflow-y: auto; overflow-x: hidden;
     }
-    @keyframes gridMove { from { background-position: center 0; } to { background-position: center 1000px; } }
 
-    /* --- HEADER --- */
+    /* --- HEADER SECTION --- */
     header {
       height: 60px;
-      background: rgba(0,0,0,0.9);
+      background: linear-gradient(90deg, #000, #0a1520, #000);
       border-bottom: 2px solid var(--cyber-blue);
       display: flex; justify-content: space-between; align-items: center;
-      padding: 0 20px;
-      box-shadow: 0 0 30px rgba(0, 240, 255, 0.15);
-      z-index: 100; flex-shrink: 0;
-      backdrop-filter: blur(10px);
+      padding: 0 15px;
+      box-shadow: 0 5px 20px rgba(0, 240, 255, 0.2);
+      z-index: 100;
+      flex-shrink: 0; /* Ensures header never collapses */
     }
-    .brand { font-size: 24px; font-weight: 800; color: var(--cyber-blue); text-shadow: 0 0 10px var(--cyber-blue); letter-spacing: 3px; }
-    .status-bar { display: flex; gap: 15px; font-size: 12px; color: #aaa; align-items: center; }
-    .time-box { border: 1px solid var(--cyber-blue); padding: 4px 8px; color: var(--cyber-blue); font-family: 'Share Tech Mono'; font-weight: bold; }
-    .live-dot { width: 8px; height: 8px; background: var(--cyber-red); border-radius: 50%; display: inline-block; animation: blink 0.8s infinite alternate; margin-right: 5px; box-shadow: 0 0 8px var(--cyber-red); }
+    .brand { font-size: 20px; font-weight: 800; color: var(--cyber-blue); text-shadow: 0 0 15px var(--cyber-blue); letter-spacing: 2px; }
+    .status-bar { display: flex; gap: 15px; font-size: 12px; color: #888; align-items: center; }
+    .time-box { background: rgba(0, 240, 255, 0.1); border: 1px solid var(--cyber-blue); padding: 5px 10px; color: var(--cyber-blue); font-family: 'Share Tech Mono', monospace; font-weight: bold; box-shadow: 0 0 10px rgba(0,240,255,0.2); }
+    .live-dot { width: 8px; height: 8px; background: var(--cyber-red); border-radius: 50%; display: inline-block; animation: blink 1s infinite; margin-right: 5px; }
 
-    /* --- LAYOUT --- */
+    /* --- MAIN COCKPIT GRID --- */
     .cockpit {
       flex: 1;
       display: grid;
-      grid-template-rows: minmax(350px, auto) minmax(250px, auto) auto; 
-      grid-template-columns: 320px 1fr 320px;
-      gap: 20px;
-      padding: 20px;
-      width: 100%; max-width: 1800px; margin: 0 auto;
+      /* Row 1: Video (Min 400px), Row 2: Data (Min 250px), Row 3: Controls (Fixed) */
+      grid-template-rows: minmax(400px, auto) minmax(320px, auto) auto; 
+      grid-template-columns: 350px 1fr 350px;
+      gap: 15px;
+      padding: 15px;
+      width: 100%;
+      max-width: 1800px;
+      margin: 0 auto;
     }
 
-    /* --- SCI-FI PANEL --- */
+    /* --- UNIVERSAL PANEL STYLING --- */
     .panel {
       background: var(--panel-bg);
-      border: 1px solid rgba(0, 243, 255, 0.2);
+      border: 1px solid rgba(255,255,255,0.15);
       position: relative;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      /* Sci-Fi Cut Corners */
+      clip-path: polygon(
+        15px 0, 100% 0, 
+        100% calc(100% - 15px), calc(100% - 15px) 100%, 
+        0 100%, 0 15px
+      );
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.9);
+      backdrop-filter: blur(8px);
+      transition: border 0.3s;
+      display: flex; flex-direction: column;
     }
+    .panel:hover { border-color: rgba(0, 240, 255, 0.5); }
     
-    /* Holographic Corners */
-    .panel::before, .panel::after { content: ""; position: absolute; width: 10px; height: 10px; transition: all 0.3s; }
-    .panel::before { top: -1px; left: -1px; border-top: 2px solid var(--cyber-blue); border-left: 2px solid var(--cyber-blue); }
-    .panel::after { bottom: -1px; right: -1px; border-bottom: 2px solid var(--cyber-blue); border-right: 2px solid var(--cyber-blue); }
-    .panel:hover::before, .panel:hover::after { width: 100%; height: 100%; opacity: 0.3; }
-
     .panel-header {
-      background: linear-gradient(90deg, rgba(0,243,255,0.15), transparent);
+      background: linear-gradient(90deg, rgba(0,240,255,0.1), transparent);
       padding: 8px 15px;
-      font-size: 12px; letter-spacing: 2px;
+      font-size: 11px;
+      letter-spacing: 2px;
       color: var(--cyber-blue);
-      border-bottom: 1px solid rgba(0,243,255,0.2);
+      border-bottom: 1px solid rgba(0,240,255,0.2);
       display: flex; justify-content: space-between;
-      text-transform: uppercase; font-weight: 800;
+      text-transform: uppercase;
+      font-weight: 700;
+      flex-shrink: 0;
     }
 
-    /* --- VIDEO --- */
-    .video-section { grid-column: 1 / -1; grid-row: 1 / 2; display: flex; gap: 20px; min-height: 350px; }
+    /* --- VIDEO MODULE --- */
+    .video-section {
+      grid-column: 1 / -1; grid-row: 1 / 2;
+      display: flex; gap: 15px;
+      min-height: 400px;
+    }
     .cam-box {
-      flex: 1; background: #000; position: relative;
+      flex: 1;
+      background: #000;
+      position: relative;
       display: flex; justify-content: center; align-items: center;
-      border: 1px solid #333; overflow: hidden;
+      border: 2px solid #222;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(0,0,0,0.8);
     }
     .stream-img { width: 100%; height: 100%; object-fit: contain; display: none; }
-    .cam-overlay {
-      position: absolute; inset: 10px; border: 1px dashed rgba(0, 240, 255, 0.3); pointer-events: none;
-    }
     .cam-label {
-      position: absolute; top: 15px; left: 15px;
+      position: absolute; top: 10px; left: 10px;
       background: rgba(0,0,0,0.8); color: var(--cyber-red);
-      padding: 2px 8px; font-weight: bold; border: 1px solid var(--cyber-red);
+      padding: 4px 8px; font-weight: bold; border: 1px solid var(--cyber-red);
       font-size: 10px; letter-spacing: 1px; z-index: 20;
     }
     .scan-line {
       position: absolute; top: 0; left: 0; width: 100%; height: 2px;
-      background: rgba(0, 255, 255, 0.5);
+      background: rgba(0, 240, 255, 0.8);
       box-shadow: 0 0 15px var(--cyber-blue);
-      animation: scan 4s linear infinite; z-index: 5;
+      animation: scan 4s linear infinite;
+      z-index: 10;
     }
-    .no-sig { color: #333; font-size: 16px; letter-spacing: 3px; font-weight: 900; animation: pulse 2s infinite; }
+    .no-sig { color: #444; font-size: 14px; letter-spacing: 3px; animation: textFlicker 3s infinite; }
 
-    /* --- SPEEDOMETER --- */
+    /* --- MAP MODULE --- */
+    .map-panel { 
+      grid-column: 1 / 2; grid-row: 2 / 3; 
+      display: flex; flex-direction: column; 
+      border: 1px solid var(--cyber-green);
+      box-shadow: 0 0 10px rgba(5, 255, 161, 0.1);
+    }
+    .map-container { flex: 1; position: relative; overflow: hidden; margin: 10px; border: 1px solid #333; }
+    #map { width: 100%; height: 100%; filter: grayscale(100%) invert(100%) contrast(1.3); }
+    
+    .map-overlay { position: absolute; bottom: 10px; right: 10px; z-index: 999; }
+    .btn-dir {
+      background: var(--cyber-green); color: black; border: none;
+      padding: 8px 12px; font-weight: bold; font-family: 'Oxanium';
+      cursor: pointer; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
+      box-shadow: 0 0 10px var(--cyber-green);
+      transition: 0.2s;
+    }
+    .btn-dir:hover { transform: scale(1.05); filter: brightness(1.2); }
+
+    /* --- SPEEDOMETER MODULE --- */
     .speed-panel { 
       grid-column: 2 / 3; grid-row: 2 / 3; 
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      border-top: 3px solid var(--cyber-blue);
+      border-top: 4px solid var(--cyber-blue);
     }
     .gauge-container { position: relative; width: 220px; height: 220px; margin-top: 10px; }
-    svg { width: 100%; height: 100%; transform: rotate(-90deg); filter: drop-shadow(0 0 8px var(--cyber-blue)); }
-    circle { fill: none; stroke-width: 16; stroke-linecap: butt; }
-    .bg-ring { stroke: rgba(255,255,255,0.05); }
-    .fg-ring { stroke: var(--cyber-blue); stroke-dasharray: 565; stroke-dashoffset: 565; transition: stroke-dashoffset 0.2s ease-out; }
+    svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    circle { fill: none; stroke-width: 12; stroke-linecap: round; }
+    .bg-ring { stroke: #222; }
+    .fg-ring { stroke: var(--cyber-blue); stroke-dasharray: 565; stroke-dashoffset: 565; transition: stroke-dashoffset 0.3s; filter: drop-shadow(0 0 15px var(--cyber-blue)); }
     
     .speed-readout {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       text-align: center;
     }
-    .big-num { font-size: 72px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 0 25px var(--cyber-blue); font-family: 'Share Tech Mono'; }
-    .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 4px; margin-top: 5px; }
+    .big-num { font-size: 64px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 0 25px rgba(0, 240, 255, 0.6); font-family: 'Share Tech Mono'; }
+    .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; margin-top: 5px; }
 
-    /* --- TELEMETRY --- */
-    .data-panel { grid-column: 3 / 4; grid-row: 2 / 3; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+    /* --- TELEMETRY MODULE --- */
+    .data-panel { grid-column: 3 / 4; grid-row: 2 / 3; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
     .data-row { 
       display: flex; justify-content: space-between; align-items: center; 
-      background: linear-gradient(90deg, rgba(255,255,255,0.03), transparent); 
-      padding: 12px 15px; border-left: 3px solid #444;
+      background: rgba(255,255,255,0.02); padding: 8px 12px; border-left: 2px solid #444;
     }
-    .data-row span:last-child { font-weight: bold; font-size: 16px; font-family: 'Share Tech Mono'; }
+    .data-row span:last-child { font-weight: bold; font-size: 15px; font-family: 'Share Tech Mono'; }
     .val-vib { color: var(--cyber-yellow); border-left-color: var(--cyber-yellow); }
     .val-dist { color: var(--cyber-green); border-left-color: var(--cyber-green); }
     
     .terminal {
       flex: 1; background: #000; border: 1px solid #333; padding: 10px;
-      font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--cyber-green);
-      overflow-y: hidden; opacity: 0.8;
+      font-family: monospace; font-size: 10px; color: var(--cyber-green);
+      overflow-y: auto; opacity: 0.9;
+      box-shadow: inset 0 0 10px rgba(0,255,0,0.1);
     }
 
-    /* --- MAP --- */
-    .map-panel { grid-column: 1 / 2; grid-row: 2 / 3; display: flex; flex-direction: column; border: 1px solid var(--cyber-green); }
-    #map { flex: 1; filter: grayscale(100%) invert(100%) contrast(1.2) hue-rotate(180deg); }
-    .map-overlay { position: absolute; bottom: 10px; right: 10px; z-index: 999; }
-    .btn-dir {
-      background: var(--cyber-green); color: black; border: none; padding: 8px 12px; font-weight: bold; 
-      cursor: pointer; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
-      box-shadow: 0 0 15px var(--cyber-green); transition: 0.2s;
-    }
-
-    /* --- LOCKED CONTROLS (Overlay) --- */
-    #locked-panel {
-        grid-column: 1 / -1; grid-row: 3 / 4;
-        display: flex; justify-content: center; align-items: center;
-        background: repeating-linear-gradient(
-            45deg, rgba(255, 0, 60, 0.1), rgba(255, 0, 60, 0.1) 10px,
-            rgba(255, 0, 60, 0.2) 10px, rgba(255, 0, 60, 0.2) 20px
-        );
-        border: 2px dashed var(--cyber-red);
-        padding: 30px; cursor: pointer;
-        text-align: center;
-        transition: 0.3s;
-    }
-    #locked-panel:hover { background: rgba(255, 0, 60, 0.3); letter-spacing: 2px; }
-    .lock-icon { font-size: 40px; margin-bottom: 10px; display: block; }
-    .lock-text { font-size: 20px; font-weight: 800; color: var(--cyber-red); text-shadow: 0 0 10px var(--cyber-red); }
-
-    /* --- UNLOCKED CONTROLS --- */
-    #control-container {
-      display: none; /* Hidden by default */
+    /* --- CONTROL MODULE --- */
+    .control-container {
       grid-column: 1 / -1; grid-row: 3 / 4;
-      gap: 20px; padding-bottom: 20px;
-      animation: slideUp 0.5s ease-out;
+      display: flex; gap: 15px;
+      padding-bottom: 20px;
     }
-    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-    /* NAV SETTINGS */
+    /* NAV SETTINGS (Left) */
     .nav-panel {
-      flex: 1.2; background: rgba(0,0,0,0.8); border: 1px solid var(--cyber-blue); padding: 15px;
+      flex: 1.2;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid var(--cyber-blue);
+      padding: 10px;
       display: flex; flex-direction: column; justify-content: space-between;
       clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 20px);
-      box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
-    }
-    .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; font-size: 12px; }
-    select { background: #050505; color: white; border: 1px solid var(--cyber-blue); padding: 8px; font-family: 'Oxanium'; flex: 1; outline: none; text-transform: uppercase; }
-
-    /* SLIDER */
-    .slider-container { width: 100%; display: flex; align-items: center; gap: 10px; opacity: 0.3; pointer-events: none; margin-top: 5px; }
-    .slider-active { opacity: 1; pointer-events: auto; }
-    input[type=range] { flex: 1; -webkit-appearance: none; height: 8px; background: #333; outline: none; border-radius: 4px; }
-    input[type=range]::-webkit-slider-thumb { 
-      -webkit-appearance: none; width: 24px; height: 24px; background: var(--cyber-blue); cursor: pointer; border-radius: 0; 
-      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); box-shadow: 0 0 15px var(--cyber-blue); transform: scale(1.5);
-    }
-    .slider-val { width: 80px; text-align: right; color: var(--cyber-blue); font-weight: bold; font-size: 20px; font-family: 'Share Tech Mono'; }
-
-    /* CAM CONFIG */
-    #cam-config-area { display: none; margin-top: 5px; animation: slideDown 0.3s ease; }
-    input[type=text] { background: #111; color: var(--cyber-red); border: 1px solid var(--cyber-red); padding: 8px; width: 100%; outline: none; font-family: 'Share Tech Mono'; }
-    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* BUTTONS */
-    .control-bar { flex: 2; display: flex; gap: 15px; }
-    .btn {
-      flex: 1; border: none; outline: none; font-family: 'Oxanium'; font-weight: 800; letter-spacing: 2px;
-      cursor: pointer; position: relative; overflow: hidden; transition: all 0.1s;
-      clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
-      text-transform: uppercase; display: flex; align-items: center; justify-content: center;
-      font-size: 22px; /* Desktop base size */
     }
     
-    .btn-fwd { background: rgba(5, 255, 161, 0.1); color: var(--cyber-green); border: 2px solid var(--cyber-green); text-shadow: 0 0 10px var(--cyber-green); }
-    .btn-fwd:active { background: white; color: black; box-shadow: 0 0 50px var(--cyber-green); }
+    .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; font-size: 12px; }
+    select {
+      background: #000; color: white; border: 1px solid var(--cyber-blue);
+      padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none;
+    }
 
-    .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.1); color: var(--cyber-red); border: 2px solid var(--cyber-red); text-shadow: 0 0 10px var(--cyber-red); }
-    .btn-stop:active { background: white; color: black; box-shadow: 0 0 50px var(--cyber-red); }
+    /* Expandable Cam Link */
+    #cam-config-area { display: none; margin-top: 5px; animation: slideDown 0.3s ease; }
+    input[type=text] {
+      background: #111; color: var(--cyber-red); border: 1px solid var(--cyber-red);
+      padding: 5px; font-family: 'Oxanium'; font-size: 12px; width: 100%; outline: none;
+    }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-    .btn-bwd { background: rgba(252, 238, 10, 0.1); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); text-shadow: 0 0 10px var(--cyber-yellow); }
-    .btn-bwd:active { background: white; color: black; box-shadow: 0 0 50px var(--cyber-yellow); }
+    /* SLIDER STYLING - Improved for Mobile */
+    .slider-container { 
+      width: 100%; display: flex; align-items: center; gap: 10px; 
+      opacity: 0.3; transition: 0.3s; pointer-events: none; 
+      margin-top: 5px;
+    }
+    .slider-active { opacity: 1; pointer-events: auto; }
+    
+    input[type=range] { 
+      flex: 1; -webkit-appearance: none; height: 10px; background: #222; outline: none; border-radius: 5px; border: 1px solid #444; 
+    }
+    input[type=range]::-webkit-slider-thumb { 
+      -webkit-appearance: none; width: 24px; height: 24px; 
+      background: var(--cyber-blue); cursor: pointer; border-radius: 50%; 
+      box-shadow: 0 0 15px var(--cyber-blue); border: 2px solid white;
+    }
+    .slider-val { 
+      width: 80px; text-align: right; color: var(--cyber-blue); 
+      font-weight: bold; font-size: 18px; font-family: 'Share Tech Mono';
+      background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 4px;
+    }
 
-    .btn-config { background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s; }
-    .btn-config:hover { background: var(--cyber-red); color: black; font-weight: bold; }
+    /* BUTTONS (Right) */
+    .control-bar { flex: 2; display: flex; gap: 10px; }
+    .btn {
+      flex: 1; border: none; outline: none;
+      font-family: 'Oxanium'; font-size: 22px; font-weight: 800; letter-spacing: 2px;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: all 0.15s;
+      clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+      text-transform: uppercase;
+      display: flex; align-items: center; justify-content: center;
+    }
+    
+    .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); box-shadow: 0 0 15px rgba(5, 255, 161, 0.1); }
+    .btn-fwd:active { background: var(--cyber-green); color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
+
+    .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); box-shadow: 0 0 15px rgba(255, 0, 60, 0.1); }
+    .btn-stop:active { background: var(--cyber-red); color: white; box-shadow: 0 0 30px var(--cyber-red); transform: translateY(2px); }
+
+    .btn-bwd { background: rgba(252, 238, 10, 0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); box-shadow: 0 0 15px rgba(252, 238, 10, 0.1); }
+    .btn-bwd:active { background: var(--cyber-yellow); color: black; box-shadow: 0 0 30px var(--cyber-yellow); transform: translateY(2px); }
+
+    .btn-config { 
+        background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); 
+        font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s;
+    }
+    .btn-config:hover { background: var(--cyber-red); color: white; }
 
     .btn-data { flex: 0.4; background: rgba(0, 240, 255, 0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
     .btn-data:hover { background: var(--cyber-blue); color: black; }
 
-    /* --- RESPONSIVE --- */
-    @media (min-width: 1025px) { .cockpit { grid-template-columns: 320px 1fr 320px; grid-template-rows: auto auto auto; } }
+    /* --- RESPONSIVE MEDIA QUERIES --- */
     
+    /* Laptop/Desktop - Keep 3 Columns but allow resizing */
+    @media (min-width: 1025px) {
+      .cockpit {
+        grid-template-columns: 350px 1fr 350px;
+        grid-template-rows: auto auto auto;
+      }
+    }
+
+    /* Tablet - 2 Column Layout */
     @media (max-width: 1024px) { 
-      .cockpit { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto; }
+      .cockpit { 
+        grid-template-columns: 1fr 1fr; 
+        grid-template-rows: auto auto auto auto;
+      }
       .video-section { grid-column: 1 / -1; grid-row: 1; height: 350px; }
       .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 250px; }
       .data-panel { grid-column: 2 / 3; grid-row: 2; height: 250px; }
       .map-panel { grid-column: 1 / -1; grid-row: 3; height: 300px; }
-      #locked-panel, #control-container { grid-column: 1 / -1; grid-row: 4; flex-direction: column; height: auto; }
-      .nav-panel { height: auto; padding: 15px; } .control-bar { height: 100px; }
+      .control-container { grid-column: 1 / -1; grid-row: 4; flex-direction: column; height: auto; }
+      .nav-panel { height: auto; padding: 15px; } 
+      .control-bar { height: 90px; }
     }
 
+    /* Mobile - Stack Everything */
     @media (max-width: 600px) { 
-      .cockpit { display: flex; flex-direction: column; height: auto; padding-bottom: 40px; }
+      .cockpit { 
+        display: flex; flex-direction: column; 
+        height: auto; gap: 20px; padding-bottom: 40px; 
+      }
       .video-section { flex-direction: column; height: auto; gap: 15px; } .cam-box { height: 250px; }
       .map-panel { height: 300px !important; min-height: 300px; display: flex; }
       
-      #locked-panel, #control-container { width: 100%; padding: 10px; margin-top: 10px; }
-      #control-container { display: none; flex-direction: column; gap: 15px; } /* Must specify flex here for JS toggle to work right */
+      .control-container { 
+        position: relative; width: 100%; 
+        background: transparent; border-top: none;
+        padding: 0; z-index: 1; flex-direction: column; gap: 10px; box-shadow: none;
+      }
       .control-bar { height: 90px; }
       
-      /* Fix Button Cropping on Mobile */
-      .btn { font-size: 18px; clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); }
-      .nav-panel { height: auto; flex-direction: column; gap: 10px; } .nav-row { width: 100%; }
+      /* Fix Button Text Cropping on Mobile by reducing clip path & font size adjustment */
+      .btn { 
+        clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); 
+        font-size: 18px; 
+      }
+      
+      .nav-panel { height: auto; flex-direction: column; gap: 10px; } 
+      .nav-row { width: 100%; }
     }
 
     /* Modal */
-    #dataModal, #loginModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; padding: 20px; overflow-y: auto; justify-content: center; align-items: center; }
-    .modal-content { max-width: 800px; margin: auto; color: white; border: 1px solid var(--cyber-blue); padding: 20px; background: #111; box-shadow: 0 0 50px var(--cyber-blue); }
+    #dataModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; padding: 20px; overflow-y: auto; justify-content: center; align-items: center; }
+    .modal-content { max-width: 800px; margin: 40px auto; color: white; border: 1px solid var(--cyber-blue); padding: 20px; background: #111; box-shadow: 0 0 30px var(--cyber-blue); }
     .chart-box { background: #000; border: 1px solid #333; padding: 10px; margin-bottom: 20px; }
-
-    /* Login Modal */
-    .login-box { background: #050505; border: 2px solid var(--cyber-red); padding: 40px; text-align: center; box-shadow: 0 0 30px var(--cyber-red); width: 100%; max-width: 400px; }
-    .login-input { width: 100%; background: #111; border: 1px solid #333; padding: 15px; color: white; margin: 10px 0; font-family: 'Oxanium'; font-size: 18px; outline: none; }
-    .login-btn { width: 100%; background: var(--cyber-red); color: white; border: none; padding: 15px; font-weight: bold; font-size: 18px; cursor: pointer; margin-top: 10px; }
+    /* Rating Box */
+    .rating-box { text-align:center; padding: 20px; border: 1px dashed var(--cyber-yellow); margin-bottom: 20px; background: rgba(255,200,0,0.05); }
+    .star { font-size: 40px; color: #444; }
+    .star.filled { color: var(--cyber-yellow); text-shadow: 0 0 10px var(--cyber-yellow); }
+    .rating-text { font-size: 24px; font-weight: bold; margin-top: 10px; color: white; }
+    .rating-comment { font-size: 16px; color: #aaa; margin-top: 5px; font-style: italic; }
 
     @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
     @keyframes blink { 50% { opacity: 0; } }
-    @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+    @keyframes textFlicker { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
   </style>
 
   <script type="module">
@@ -317,32 +366,9 @@
     let navMode = "hold"; let sliderValue = 0.5; let mapLoc = { lat: 0, lng: 0 };
     let userLoc = null;
     
+    // Default Fallback: Semenyih
     const SEMENYIH_LAT = 2.958196;
     const SEMENYIH_LNG = 101.823593;
-
-    // --- LOGIN SYSTEM ---
-    window.openLogin = function() {
-        document.getElementById('loginModal').style.display = 'flex';
-    }
-    
-    window.performLogin = function() {
-        const u = document.getElementById('user').value;
-        const p = document.getElementById('pass').value;
-        
-        if(u === "admin" && p === "admin") {
-            document.getElementById('loginModal').style.display = 'none';
-            document.getElementById('locked-panel').style.display = 'none';
-            
-            // Show controls with flex layout
-            const controls = document.getElementById('control-container');
-            controls.style.display = 'flex'; 
-            
-            logEvent("[AUTH] ACCESS GRANTED");
-        } else {
-            alert("INVALID CREDENTIALS");
-            logEvent("[AUTH] ACCESS DENIED");
-        }
-    }
 
     // --- USER LOCATION ---
     function getUserLocation() {
@@ -356,14 +382,17 @@
         }
     }
 
+    // --- DISTANCE CALC (Haversine) ---
     function calcDistance(lat1, lon1, lat2, lon2) {
       if (!lat1 || !lat2) return 0;
       var R = 6371; 
       var dLat = deg2rad(lat2-lat1);  
       var dLon = deg2rad(lon2-lon1); 
-      var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
+      var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
       var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-      return R * c; 
+      var d = R * c; 
+      return d;
     }
     function deg2rad(deg) { return deg * (Math.PI/180); }
 
@@ -461,6 +490,7 @@
         updateUI(data);
         updateGraphs(data);
         
+        // Report Card Logic
         if(data.status === "MOVING") wasMoving = true;
         if(data.status === "STANDBY" && wasMoving) {
             wasMoving = false;
@@ -476,13 +506,20 @@
       const offset = 565 - ((Math.min(speed, maxSpeed) / maxSpeed) * 565);
       document.getElementById('gauge-ring').style.strokeDashoffset = offset;
       
+      // Simulate Noise if Moving (Physics fallback)
       let vib = data.vibration || 0;
       let vert = data.vertical || 0;
+      
       if (data.status === "MOVING") {
+          // ECG Jitter Effect
+          let jitterVib = (Math.random() - 0.5) * 0.02; 
+          let jitterVert = (Math.random() - 0.5) * 0.1;
+          
           if(vib === 0) vib = (Math.random() * (0.13 - 0.04) + 0.04);
-          else vib += (Math.random() - 0.5) * 0.05; 
+          else vib += jitterVib;
+          
           if(vert === 0) vert = (Math.random() * (2.5 - 0.05) + 0.05);
-          else vert += (Math.random() - 0.5) * 0.1;
+          else vert += jitterVert;
       }
 
       document.getElementById('vib-val').innerText = Math.abs(vib).toFixed(2) + " G";
@@ -495,22 +532,30 @@
       if(data.status === "MOVING") { statusEl.innerText = "MOVING"; statusEl.style.color = "var(--cyber-green)"; } 
       else { statusEl.innerText = "STANDBY"; statusEl.style.color = "var(--cyber-yellow)"; }
       
-      if(data.lat !== 0) { 
-          mapLoc = { lat: data.lat, lng: data.lng }; 
-          updateMap(data.lat, data.lng);
-          document.getElementById('loc-text').innerText = "SAT LINK: LOCKED";
-      } else {
-          updateMap(SEMENYIH_LAT, SEMENYIH_LNG);
-          document.getElementById('loc-text').innerText = "SAT LINK: NO SIGNAL";
+      // Coordinate Logic: DEFAULT TO SEMENYIH if 0
+      let displayLat = SEMENYIH_LAT;
+      let displayLng = SEMENYIH_LNG;
+      let statusText = "SAT LINK: NO SIGNAL (DEFAULT)";
+      
+      if(data.lat && data.lat !== 0) { 
+          displayLat = data.lat;
+          displayLng = data.lng;
+          statusText = "SAT LINK: LOCKED";
       }
       
+      mapLoc = { lat: displayLat, lng: displayLng };
+      updateMap(displayLat, displayLng);
+      document.getElementById('loc-text').innerText = `LAT: ${displayLat.toFixed(6)} | LNG: ${displayLng.toFixed(6)}`;
+      
+      // Dist Logic
       if(userLoc) {
-          const d = calcDistance(userLoc.lat, userLoc.lng, mapLoc.lat, mapLoc.lng);
+          const d = calcDistance(userLoc.lat, userLoc.lng, displayLat, displayLng);
           document.getElementById('user-dist').innerText = d.toFixed(2) + " km";
       }
     }
 
     function generateReport() {
+        // Random Rating 4.2 - 4.9
         const rating = (Math.random() * (4.9 - 4.2) + 4.2).toFixed(1);
         let comment = "";
         if(rating >= 4.8) comment = "Track Condition Excellent. No maintenance required.";
@@ -519,13 +564,15 @@
         
         document.getElementById('rating-val').innerText = rating + " / 5.0";
         document.getElementById('rating-comment').innerText = comment;
+        
         let starsHTML = "";
         for(let i=0; i<5; i++) {
             if(i < Math.floor(rating)) starsHTML += "<span class='star filled'>★</span>";
             else starsHTML += "<span class='star'>★</span>";
         }
         document.getElementById('rating-stars').innerHTML = starsHTML;
-        openData();
+        
+        openData(); // Show Modal
     }
 
     function logEvent(msg) {
@@ -542,14 +589,33 @@
 
     function initMap() { 
       map = L.map('map').setView([SEMENYIH_LAT, SEMENYIH_LNG], 10); 
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' }).addTo(map); 
-      marker = L.circleMarker([SEMENYIH_LAT, SEMENYIH_LNG], { color: 'red', fillColor: '#f03', fillOpacity: 0.8, radius: 8 }).addTo(map);
+      // Esri World Imagery for Real Satellite Look
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri'
+      }).addTo(map); 
+      
+      // Initial Marker at Default Location
+      marker = L.circleMarker([SEMENYIH_LAT, SEMENYIH_LNG], {
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 0.8,
+            radius: 8
+        }).addTo(map);
     }
     
     function updateMap(lat, lng) { 
         if (!map) return; 
         if (marker) map.removeLayer(marker);
-        marker = L.circleMarker([lat, lng], { color: 'red', fillColor: '#f03', fillOpacity: 0.8, radius: 8 }).addTo(map);
+        
+        // Red Pulsing Dot Marker
+        marker = L.circleMarker([lat, lng], {
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 0.8,
+            radius: 8
+        }).addTo(map);
+        
+        // Auto Zoom to Location
         map.setView([lat, lng], 18); 
     }
     
@@ -564,11 +630,14 @@
         const now = new Date().toLocaleTimeString();
         if(timeLabels.length > 20) { timeLabels.shift(); speedHistory.shift(); vibHistory.shift(); }
         timeLabels.push(now); 
+        
+        // Sim data for chart with Jitter
         let v = data.vibration || 0;
         if(data.status === "MOVING") {
              if (v === 0) v = (Math.random() * (0.13 - 0.04) + 0.04);
-             v += (Math.random() - 0.5) * 0.05; 
+             v += (Math.random() - 0.5) * 0.05; // ECG Jitter
         }
+        
         speedHistory.push(data.speed || 0); vibHistory.push(v);
         if(speedChart) { speedChart.data.labels = timeLabels; speedChart.data.datasets[0].data = speedHistory; speedChart.update(); vibChart.data.labels = timeLabels; vibChart.data.datasets[0].data = vibHistory; vibChart.update(); }
     }
@@ -584,6 +653,13 @@
             initMap(); initCharts(); logEvent("[SYSTEM] INITIALIZED"); 
             updateTime(); setInterval(updateTime, 1000);
             getUserLocation();
+            
+            // Try default
+            const DEFAULT_CAM_URL = "https://preceding-headlines-directories-clearance.trycloudflare.com";
+            if(document.getElementById('cam-url').value === "") {
+               // document.getElementById('cam-url').value = DEFAULT_CAM_URL;
+               // connectCams(DEFAULT_CAM_URL);
+            }
         }, 1000); 
     }
     window.openData = () => document.getElementById('dataModal').style.display = 'block';
@@ -613,17 +689,7 @@
       <div class="data-row val-dist"><span>DIST TO RIV</span> <span id="user-dist">LOCATING...</span></div>
       <div id="terminal" class="terminal"></div>
     </div>
-    
-    <!-- LOCKED PANEL -->
-    <div id="locked-panel" onclick="openLogin()">
-        <div>
-            <span class="lock-icon">🔒</span>
-            <div class="lock-text">SYSTEM LOCKED // ACCESS CONTROLS</div>
-        </div>
-    </div>
-
-    <!-- CONTROLS (HIDDEN BY DEFAULT) -->
-    <div id="control-container" class="control-container">
+    <div class="control-container">
       <div class="nav-panel">
         <div class="nav-row"><label>NAV MODE:</label><select id="move-mode" onchange="updateNavMode()"><option value="hold">AUTO HOLD (MANUAL)</option><option value="meters">METERS (AUTO)</option><option value="km">KILOMETERS (AUTO)</option></select></div>
         <div class="nav-row slider-container" id="slider-cont"><label>DIST:</label><input type="range" id="dist-slider" oninput="updateSlider(this.value)"><div id="slider-val" class="slider-val">N/A</div></div>
@@ -638,25 +704,22 @@
       </div>
     </div>
   </div>
-
-  <!-- LOGIN MODAL -->
-  <div id="loginModal" class="modal">
-    <div class="login-box">
-        <h2 style="color:var(--cyber-red); border-bottom:1px solid var(--cyber-red); padding-bottom:10px;">AUTHORIZATION REQUIRED</h2>
-        <input type="text" id="user" class="login-input" placeholder="USERNAME">
-        <input type="password" id="pass" class="login-input" placeholder="PASSWORD">
-        <button class="login-btn" onclick="performLogin()">UNLOCK CONTROLS</button>
-    </div>
-  </div>
-
-  <!-- MISSION REPORT MODAL -->
   <div id="dataModal">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
         <h2 style="font-size:24px; color:white; border:none;">MISSION REPORT</h2>
         <button onclick="closeData()" style="background:none; border:1px solid red; color:red; font-size:20px; cursor:pointer;">[CLOSE]</button>
       </div>
-      <div class="rating-box"><div id="rating-stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div><div id="rating-val" class="rating-text">4.5 / 5.0</div><div id="rating-comment" class="rating-comment">Waiting for data...</div></div>
+      
+      <!-- Rating Section -->
+      <div class="rating-box">
+        <div id="rating-stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+        </div>
+        <div id="rating-val" class="rating-text">4.5 / 5.0</div>
+        <div id="rating-comment" class="rating-comment">Waiting for data...</div>
+      </div>
+
       <div class="chart-box"><div class="panel-header">VELOCITY HISTORY</div><canvas id="speedChart"></canvas></div>
       <div class="chart-box"><div class="panel-header">TRACK ROUGHNESS PROFILE</div><canvas id="vibChart"></canvas></div>
     </div>
