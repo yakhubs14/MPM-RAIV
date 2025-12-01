@@ -71,7 +71,33 @@ def gen(cam_idx):
 # --- ROUTES ---
 @app.route('/')
 def index():
-    return "<h1>RAIV 4-CAM SERVER ONLINE</h1>"
+    return """
+    <html>
+    <head><title>RAIV 4-CAM SERVER</title></head>
+    <body style="background:black; color:cyan; font-family:monospace; text-align:center; padding-top:50px;">
+        <h1>RAIV 4-CAMERA SYSTEM ONLINE</h1>
+        <p>Status: ACTIVE</p>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; max-width:800px; margin:30px auto;">
+            <div style="border:1px solid cyan; padding:20px;">
+                <h3>CAM 1 (Front)</h3>
+                <a href="/video1" style="color:yellow; font-size:20px; text-decoration:none;">[ VIEW STREAM ]</a>
+            </div>
+            <div style="border:1px solid cyan; padding:20px;">
+                <h3>CAM 2 (Rear)</h3>
+                <a href="/video2" style="color:yellow; font-size:20px; text-decoration:none;">[ VIEW STREAM ]</a>
+            </div>
+            <div style="border:1px solid cyan; padding:20px;">
+                <h3>CAM 3 (Left)</h3>
+                <a href="/video3" style="color:yellow; font-size:20px; text-decoration:none;">[ VIEW STREAM ]</a>
+            </div>
+            <div style="border:1px solid cyan; padding:20px;">
+                <h3>CAM 4 (Right)</h3>
+                <a href="/video4" style="color:yellow; font-size:20px; text-decoration:none;">[ VIEW STREAM ]</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 
 @app.route('/video1')
 def video_feed1(): return Response(gen(0), mimetype='multipart/x-mixed-replace; boundary=frame')
