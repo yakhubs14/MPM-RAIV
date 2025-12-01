@@ -9,10 +9,10 @@ import sys
 import os
 
 # --- CONFIGURATION ---
-# Camera Indices (Adjust these if cameras are swapped)
-CAM_1_INDEX = 2
+# Standard Indices for 4 Cameras
+CAM_1_INDEX = 0
 CAM_2_INDEX = 1
-CAM_3_INDEX = 0 
+CAM_3_INDEX = 2 
 CAM_4_INDEX = 3 
 
 PORT = 5000
@@ -29,9 +29,11 @@ class VideoCamera(object):
         if not self.video.isOpened():
             print(f"Warning: Camera {index} could not be opened.")
         
-        # Resolution 640x480
-        self.video.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        # REDUCED RESOLUTION FOR BANDWIDTH (Fixes 4-Cam Crash)
+        self.video.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+        self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+        # Try to set FPS on hardware level
+        self.video.set(cv2.CAP_PROP_FPS, 15)
     
     def __del__(self): 
         if self.video.isOpened(): self.video.release()
@@ -42,28 +44,35 @@ class VideoCamera(object):
         if not success: return None
         
         # Add "REC" text
-        cv2.putText(image, f"CAM {cam_id} REC", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        cv2.putText(image, f"CAM {cam_id}", (5, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
         
-        ret, jpeg = cv2.imencode('.jpg', image)
+        # HIGH COMPRESSION (Fixes Lag)
+        # Quality = 30 (Lower quality, much faster stream)
+        ret, jpeg = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
         return jpeg.tobytes()
 
 # Global Objects
-cameras = [None, None, None, None] # Index 0->Cam1, 1->Cam2...
+cameras = [None, None, None, None] 
 indices = [CAM_1_INDEX, CAM_2_INDEX, CAM_3_INDEX, CAM_4_INDEX]
 
 def gen(cam_idx):
     global cameras
     while True:
         try:
+            # Lazy Initialization (Only start camera if someone is watching)
             if cameras[cam_idx] is None:
                 try: cameras[cam_idx] = VideoCamera(indices[cam_idx])
                 except: pass
-                time.sleep(1)
+                time.sleep(0.5)
                 continue
             
             frame = cameras[cam_idx].get_frame(cam_idx + 1)
             if frame: 
                 yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+                
+                # Software FPS Cap (Fixes Lag)
+                # 0.066 = ~15 FPS. Gives the 4G network time to breathe.
+                time.sleep(0.066)
             else: 
                 time.sleep(0.1)
         except: time.sleep(0.1)
@@ -75,24 +84,20 @@ def index():
     <html>
     <head><title>RAIV 4-CAM SERVER</title></head>
     <body style="background:black; color:cyan; font-family:monospace; text-align:center; padding-top:50px;">
-        <h1>RAIV 4-CAMERA SYSTEM ONLINE</h1>
+        <h1>RAIV 4-CAMERA SYSTEM (LOW LATENCY)</h1>
         <p>Status: ACTIVE</p>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; max-width:800px; margin:30px auto;">
             <div style="border:1px solid cyan; padding:20px;">
-                <h3>CAM 1 (Front)</h3>
-                <a href="/video1" style="color:yellow; font-size:20px; text-decoration:none;">[ VIEW STREAM ]</a>
+                <h3>CAM 1</h3> <a href="/video1" style="color:yellow;">[ VIEW ]</a>
             </div>
             <div style="border:1px solid cyan; padding:20px;">
-                <h3>CAM 2 (Rear)</h3>
-                <a href="/video2" style="color:yellow; font-size:20px; text-decoration:none;">[ VIEW STREAM ]</a>
+                <h3>CAM 2</h3> <a href="/video2" style="color:yellow;">[ VIEW ]</a>
             </div>
             <div style="border:1px solid cyan; padding:20px;">
-                <h3>CAM 3 (Left)</h3>
-                <a href="/video3" style="color:yellow; font-size:20px; text-decoration:none;">[ VIEW STREAM ]</a>
+                <h3>CAM 3</h3> <a href="/video3" style="color:yellow;">[ VIEW ]</a>
             </div>
             <div style="border:1px solid cyan; padding:20px;">
-                <h3>CAM 4 (Right)</h3>
-                <a href="/video4" style="color:yellow; font-size:20px; text-decoration:none;">[ VIEW STREAM ]</a>
+                <h3>CAM 4</h3> <a href="/video4" style="color:yellow;">[ VIEW ]</a>
             </div>
         </div>
     </body>
@@ -139,5 +144,6 @@ if __name__ == '__main__':
     t.daemon = True
     t.start()
 
-    print(f"--- STARTING 4 CAMERAS ---")
+    print(f"--- STARTING 4 CAMERAS (OPTIMIZED) ---")
+    # threaded=True is vital for multiple streams
     app.run(host='0.0.0.0', port=PORT, threaded=True)
