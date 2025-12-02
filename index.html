@@ -65,7 +65,7 @@
       flex: 1;
       display: grid;
       /* Video Grid | Data & Controls */
-      grid-template-rows: minmax(450px, auto) minmax(320px, auto) auto; 
+      grid-template-rows: minmax(450px, auto) minmax(300px, auto) auto; 
       grid-template-columns: 340px 1fr 340px;
       gap: 15px;
       padding: 15px;
@@ -112,11 +112,11 @@
       display: flex; justify-content: center; align-items: center;
       border: 2px solid #222; overflow: hidden;
       box-shadow: 0 0 20px rgba(0,0,0,0.8);
-      transform: translateZ(0); /* Hardware Accel */
     }
     .stream-img { 
         width: 100%; height: 100%; object-fit: contain; display: none; 
-        will-change: transform; /* Optimize rendering */
+        /* Performance optimization */
+        transform: translateZ(0); backface-visibility: hidden;
     }
     .cam-label {
       position: absolute; top: 10px; left: 10px;
@@ -150,12 +150,12 @@
     }
     .btn-dir:hover { transform: scale(1.05); filter: brightness(1.2); }
 
-    /* --- CAR-STYLE SPEEDOMETER --- */
+    /* --- SPEEDOMETER (FIXED) --- */
     .speed-panel { 
       grid-column: 2 / 3; grid-row: 2 / 3; 
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       border-top: 4px solid var(--cyber-blue);
-      background: radial-gradient(circle at center, #112 0%, rgba(10,15,20,0.9) 70%);
+      background: radial-gradient(circle at center, #111 0%, rgba(10,15,20,0.95) 80%);
     }
     .gauge-wrapper {
         position: relative; width: 240px; height: 240px; 
@@ -172,14 +172,17 @@
     }
     .tick.major { height: 18px; width: 4px; background: white; }
     
-    /* Needle */
+    /* Needle (FIXED PIVOT) */
     .needle {
-        position: absolute; top: 30px; left: 50%;
+        position: absolute; 
+        top: 30px; left: 50%; 
         width: 6px; height: 90px;
         background: var(--cyber-red);
-        transform-origin: bottom center; /* Rotate from bottom of needle */
-        transform: translateX(-50%) rotate(-135deg); /* Start position */
-        transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+        /* This sets the rotation point to the BOTTOM CENTER of the needle div */
+        transform-origin: bottom center; 
+        /* Start at -135 deg (Zero position) */
+        transform: translateX(-50%) rotate(-135deg); 
+        transition: transform 0.1s ease-out; /* Faster transition for responsiveness */
         z-index: 5;
         border-radius: 50% 50% 0 0;
         box-shadow: 0 0 10px var(--cyber-red);
@@ -517,12 +520,12 @@
         
         c1.src=v1; c2.src=v2; c3.src=v3; c4.src=v4;
         
-        // Video optimization
+        // Force hardware acceleration and eager loading
         [c1, c2, c3, c4].forEach(img => {
-            img.decoding = "sync";
             img.loading = "eager";
+            img.decoding = "sync";
         });
-
+        
         const setupCam = (img, noSig) => {
             img.onload = () => { img.style.display='block'; document.getElementById(noSig).style.display='none'; };
             img.onerror = () => { img.style.display='none'; document.getElementById(noSig).style.display='block'; };
@@ -617,9 +620,9 @@
     }
 
     function updateUI(data) {
-      // Convert KM/H to M/S for Display
+      // Speed
       let speedKmh = data.speed || 0;
-      if (speedKmh < 0.5) speedKmh = 0.0; // Deadzone for instant 0
+      if (speedKmh < 0.5) speedKmh = 0.0; // Deadzone
       let speedMs = speedKmh / 3.6;
       
       document.getElementById('speed-val').innerText = speedMs.toFixed(1);
@@ -707,13 +710,11 @@
     let timeLabels = [], speedHistory = [], vibHistory = [];
 
     function initMap() { 
-      // INITIAL ZOOM 10 - GOOGLE STREET STYLE (OSM)
+      // INITIAL ZOOM 10 - STREET MAP
       map = L.map('map').setView([SEMENYIH_LAT, SEMENYIH_LNG], 10); 
-      
-      // Google Streets Tile Layer (Using mt1.google.com)
-      L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',{
-        maxZoom: 20,
-        subdomains:['mt0','mt1','mt2','mt3']
+      // Standard OSM Tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
       
       // Initial Marker - RED DOT
