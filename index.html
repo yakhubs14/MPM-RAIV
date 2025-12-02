@@ -42,7 +42,7 @@
       color: white;
       min-height: 100vh; 
       display: flex; flex-direction: column;
-      overflow-y: auto; 
+      overflow-y: auto; /* Enable vertical scroll */
       overflow-x: hidden;
     }
 
@@ -55,7 +55,7 @@
       padding: 0 15px;
       box-shadow: 0 5px 20px rgba(0, 240, 255, 0.2);
       z-index: 100;
-      flex-shrink: 0;
+      flex-shrink: 0; /* Prevent header shrinking */
     }
     .brand { font-size: 20px; font-weight: 800; color: var(--cyber-blue); text-shadow: 0 0 15px var(--cyber-blue); letter-spacing: 2px; }
     .status-bar { display: flex; gap: 15px; font-size: 12px; color: #888; align-items: center; }
@@ -66,7 +66,7 @@
     .cockpit {
       flex: 1;
       display: grid;
-      /* Row 1: Video (Autosize), Row 2: Data, Row 3: Controls */
+      /* Desktop: Top (Video), Middle (Map/Data - Fixed Height), Bottom (Controls) */
       grid-template-rows: minmax(500px, auto) minmax(250px, auto) auto; 
       grid-template-columns: 320px 1fr 320px;
       gap: 15px;
@@ -85,6 +85,7 @@
       box-shadow: inset 0 0 30px rgba(0,0,0,0.9);
       backdrop-filter: blur(8px);
       transition: border 0.3s;
+      display: flex; flex-direction: column;
     }
     .panel:hover { border-color: rgba(0, 240, 255, 0.5); }
     
@@ -100,14 +101,14 @@
       font-weight: 700;
     }
 
-    /* --- VIDEO FEEDS (QUAD GRID) --- */
+    /* --- VIDEO FEEDS (4-CAMERA GRID) --- */
     .video-section {
       grid-column: 1 / -1; grid-row: 1 / 2;
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr; 
       grid-template-rows: 1fr 1fr;
-      gap: 15px;
-      min-height: 500px; /* Taller for 4 cams */
+      gap: 10px;
+      min-height: 500px; /* Increased height for 4 cams */
     }
     .cam-box {
       background: #000;
@@ -129,7 +130,7 @@
       background: rgba(0, 240, 255, 0.8);
       box-shadow: 0 0 15px var(--cyber-blue);
       animation: scan 4s linear infinite;
-      z-index: 5;
+      z-index: 10;
     }
     .no-sig { color: #444; font-size: 14px; letter-spacing: 3px; animation: textFlicker 3s infinite; }
 
@@ -141,7 +142,7 @@
       box-shadow: 0 0 10px rgba(5, 255, 161, 0.1);
     }
     .map-container { flex: 1; position: relative; overflow: hidden; margin: 10px; border: 1px solid #333; }
-    #map { width: 100%; height: 100%; filter: grayscale(100%) invert(100%) contrast(1.3); }
+    #map { width: 100%; height: 100%; background: #fff; } /* White background for Google Style */
     
     .map-overlay { position: absolute; bottom: 10px; right: 10px; z-index: 999; }
     .btn-dir {
@@ -159,33 +160,33 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       border-top: 4px solid var(--cyber-blue);
     }
-    .gauge-container { position: relative; width: 220px; height: 220px; margin-top: 10px; }
+    .gauge-container { position: relative; width: 200px; height: 200px; margin-top: 10px; display:flex; align-items:center; justify-content:center; }
     svg { width: 100%; height: 100%; transform: rotate(-90deg); }
     circle { fill: none; stroke-width: 12; stroke-linecap: round; }
     .bg-ring { stroke: #222; }
-    .fg-ring { stroke: var(--cyber-blue); stroke-dasharray: 565; stroke-dashoffset: 565; transition: stroke-dashoffset 0.3s; filter: drop-shadow(0 0 15px var(--cyber-blue)); }
+    .fg-ring { 
+        stroke: var(--cyber-blue); stroke-dasharray: 565; stroke-dashoffset: 565; 
+        transition: stroke-dashoffset 0.5s ease-out; /* Smoother transition */
+        filter: drop-shadow(0 0 10px var(--cyber-blue)); 
+    }
     
     .speed-readout {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      text-align: center;
+      text-align: center; width: 100%;
     }
-    .big-num { font-size: 64px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 0 25px rgba(0, 240, 255, 0.6); }
+    .big-num { 
+        font-size: 64px; font-weight: 800; color: white; line-height: 1; 
+        text-shadow: 0 0 20px rgba(0, 240, 255, 0.6); 
+        display: block; margin: 0 auto;
+    }
     .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; }
 
-    /* HIDDEN SPEED CONTROL */
-    #speed-control-container {
-        display: none; /* Hidden until login */
-        width: 80%; margin-top: 20px;
-        animation: slideDown 0.5s ease-out;
-    }
-    .spd-slider { 
-        width: 100%; -webkit-appearance: none; height: 8px; 
-        background: #333; border-radius: 4px; outline: none; 
-    }
+    /* SLIDER */
+    #speed-control-container { display: none; width: 90%; margin-top: 15px; animation: slideDown 0.5s ease-out; }
+    .spd-slider { width: 100%; -webkit-appearance: none; height: 8px; background: #333; border-radius: 4px; outline: none; }
     .spd-slider::-webkit-slider-thumb { 
-        -webkit-appearance: none; width: 22px; height: 22px; 
-        background: var(--cyber-yellow); border-radius: 50%; cursor: pointer; 
-        box-shadow: 0 0 10px var(--cyber-yellow); border: 2px solid white;
+        -webkit-appearance: none; width: 24px; height: 24px; background: var(--cyber-yellow); 
+        border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px var(--cyber-yellow); border: 2px solid white; 
     }
     .spd-label { text-align: center; color: var(--cyber-yellow); font-size: 14px; margin-top: 5px; font-weight: bold; font-family: 'Share Tech Mono'; }
 
@@ -195,31 +196,23 @@
       display: flex; justify-content: space-between; align-items: center; 
       background: rgba(255,255,255,0.02); padding: 8px 12px; border-left: 2px solid #444;
     }
-    .data-row span:last-child { font-weight: bold; font-size: 15px; }
+    .data-row span:last-child { font-weight: bold; font-size: 15px; font-family: 'Share Tech Mono'; }
     .val-vib { color: var(--cyber-yellow); border-left-color: var(--cyber-yellow); }
     .val-dist { color: var(--cyber-green); border-left-color: var(--cyber-green); }
     
     .terminal {
       flex: 1; background: #000; border: 1px solid #333; padding: 10px;
-      font-family: monospace; font-size: 10px; color: var(--cyber-green);
-      overflow-y: auto; opacity: 0.9;
-      box-shadow: inset 0 0 10px rgba(0,255,0,0.1);
+      font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--cyber-green);
+      overflow-y: auto; opacity: 0.9; box-shadow: inset 0 0 10px rgba(0,255,0,0.1);
     }
 
-    /* --- BOTTOM CONTROLS --- */
-    .control-container {
-      grid-column: 1 / -1; grid-row: 3 / 4;
-      display: flex; gap: 15px;
-      padding-bottom: 20px;
-    }
+    /* --- CONTROLS --- */
+    .control-container { grid-column: 1 / -1; grid-row: 3 / 4; display: flex; gap: 15px; padding-bottom: 20px; }
     
-    /* LOCKED OVERLAY */
     #locked-panel {
-        grid-column: 1 / -1; grid-row: 3 / 4;
-        display: flex; justify-content: center; align-items: center; flex-direction: column;
+        grid-column: 1 / -1; grid-row: 3 / 4; display: flex; justify-content: center; align-items: center; flex-direction: column;
         background: repeating-linear-gradient(45deg, rgba(255, 0, 60, 0.05), rgba(255, 0, 60, 0.05) 10px, rgba(255, 0, 60, 0.1) 10px, rgba(255, 0, 60, 0.1) 20px);
-        border: 2px dashed var(--cyber-red);
-        padding: 40px; cursor: pointer; text-align: center;
+        border: 2px dashed var(--cyber-red); padding: 40px; cursor: pointer; text-align: center;
         transition: 0.3s; animation: pulseRed 3s infinite;
     }
     #locked-panel:hover { background: rgba(255, 0, 60, 0.2); letter-spacing: 2px; }
@@ -230,74 +223,47 @@
 
     /* NAV SETTINGS (Left) */
     .nav-panel {
-      flex: 1.2;
-      background: rgba(0,0,0,0.6);
-      border: 1px solid var(--cyber-blue);
-      padding: 10px;
+      flex: 1.2; background: rgba(0,0,0,0.6); border: 1px solid var(--cyber-blue); padding: 10px;
       display: flex; flex-direction: column; justify-content: space-between;
       clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 20px);
     }
-    
     .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; font-size: 12px; }
-    select {
-      background: #000; color: white; border: 1px solid var(--cyber-blue);
-      padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none; text-transform: uppercase;
-    }
-
-    /* Expandable Cam Link */
-    #cam-config-area { display: none; margin-top: 5px; animation: slideDown 0.3s ease; }
-    input[type=text] {
-      background: #111; color: var(--cyber-red); border: 1px solid var(--cyber-red);
-      padding: 5px; font-family: 'Oxanium'; font-size: 12px; width: 100%; outline: none;
-    }
-    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* SLIDER STYLING */
-    .slider-container { width: 100%; display: flex; align-items: center; gap: 10px; opacity: 0.3; transition: 0.3s; pointer-events: none; margin-top: 5px; }
-    .slider-active { opacity: 1; pointer-events: auto; }
+    select { background: #000; color: white; border: 1px solid var(--cyber-blue); padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none; text-transform: uppercase; }
     
+    #cam-config-area { display: none; margin-top: 5px; animation: slideDown 0.3s ease; }
+    input[type=text] { background: #111; color: var(--cyber-red); border: 1px solid var(--cyber-red); padding: 5px; font-family: 'Oxanium'; font-size: 12px; width: 100%; outline: none; }
+    
+    /* Nav Slider */
+    .slider-container { width: 100%; display: flex; align-items: center; gap: 10px; margin-top: 5px; }
     input[type=range] { flex: 1; -webkit-appearance: none; height: 10px; background: #222; outline: none; border-radius: 5px; border: 1px solid #444; }
-    input[type=range]::-webkit-slider-thumb { 
-      -webkit-appearance: none; width: 24px; height: 24px; 
-      background: var(--cyber-blue); cursor: pointer; border-radius: 50%; 
-      box-shadow: 0 0 15px var(--cyber-blue); border: 2px solid white;
-    }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; background: var(--cyber-blue); cursor: pointer; border-radius: 50%; box-shadow: 0 0 15px var(--cyber-blue); border: 2px solid white; }
     .slider-val { width: 80px; text-align: right; color: var(--cyber-blue); font-weight: bold; font-size: 18px; }
 
-    /* BUTTONS (Right) */
+    /* Buttons */
     .control-bar { flex: 2; display: flex; gap: 10px; }
     .btn {
-      flex: 1; border: none; outline: none;
-      font-family: 'Oxanium'; font-size: 22px; font-weight: 800; letter-spacing: 2px;
-      cursor: pointer; position: relative; overflow: hidden;
-      transition: all 0.15s;
+      flex: 1; border: none; outline: none; font-family: 'Oxanium'; font-weight: 800; letter-spacing: 1px;
+      cursor: pointer; position: relative; overflow: hidden; transition: all 0.15s;
       clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
-      text-transform: uppercase;
-      display: flex; align-items: center; justify-content: center;
+      text-transform: uppercase; display: flex; align-items: center; justify-content: center;
+      font-size: clamp(14px, 3vw, 22px); /* Auto resize text */
     }
     .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); box-shadow: 0 0 15px rgba(5, 255, 161, 0.1); }
     .btn-fwd:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
-
     .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); box-shadow: 0 0 15px rgba(255, 0, 60, 0.1); }
     .btn-stop:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-red); transform: translateY(2px); }
-
     .btn-bwd { background: rgba(252, 238, 10, 0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); box-shadow: 0 0 15px rgba(252, 238, 10, 0.1); }
     .btn-bwd:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-yellow); transform: translateY(2px); }
 
-    .btn-config { 
-        background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); 
-        font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s;
-    }
+    .btn-config { background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s; }
     .btn-config:hover { background: var(--cyber-red); color: white; }
-
     .btn-data { flex: 0.4; background: rgba(0, 240, 255, 0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
     .btn-data:hover { background: var(--cyber-blue); color: black; }
 
-    /* --- RESPONSIVE --- */
-    @media (min-width: 1025px) { .cockpit { grid-template-columns: 320px 1fr 320px; grid-template-rows: auto auto auto; } }
+    /* RESPONSIVE */
     @media (max-width: 1024px) { 
       .cockpit { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto; }
-      .video-section { grid-column: 1 / -1; grid-row: 1; height: 350px; }
+      .video-section { grid-column: 1 / -1; grid-row: 1; height: 320px; }
       .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 250px; }
       .data-panel { grid-column: 2 / 3; grid-row: 2; height: 250px; }
       .map-panel { grid-column: 1 / -1; grid-row: 3; height: 300px; }
@@ -307,21 +273,20 @@
     @media (max-width: 600px) { 
       .cockpit { display: flex; flex-direction: column; height: auto; gap: 20px; padding-bottom: 40px; }
       .video-section { 
-        grid-template-columns: 1fr; /* Stack cameras on mobile */
-        grid-template-rows: auto auto auto auto;
+        display: flex; flex-direction: column; 
         height: auto; gap: 15px; 
       } 
-      .cam-box { height: 220px; }
+      .cam-box { height: 220px; width: 100%; }
       .map-panel { height: 300px !important; min-height: 300px; display: flex; }
       #locked-panel, #control-container { width: 100%; background: transparent; border-top: none; padding: 0; z-index: 1; flex-direction: column; gap: 10px; box-shadow: none; }
-      #control-container { display: none; } /* Hidden by default */
+      #control-container { display: none; }
       .control-bar { height: 90px; }
       .btn { clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); font-size: 18px; }
       .nav-panel { height: auto; flex-direction: column; gap: 10px; } .nav-row { width: 100%; }
     }
 
     /* Modals */
-    #dataModal, #loginModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; padding: 20px; overflow-y: auto; justify-content: center; align-items: center; }
+    #dataModal, #loginModal, #logsModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; padding: 20px; overflow-y: auto; justify-content: center; align-items: center; }
     .modal-content { max-width: 800px; margin: 40px auto; color: white; border: 1px solid var(--cyber-blue); padding: 20px; background: #111; box-shadow: 0 0 30px var(--cyber-blue); }
     .chart-box { background: #000; border: 1px solid #333; padding: 10px; margin-bottom: 20px; }
     
@@ -343,11 +308,12 @@
     @keyframes blink { 50% { opacity: 0; } }
     @keyframes textFlicker { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     @keyframes pulseRed { 0% { box-shadow: inset 0 0 20px rgba(255,0,0,0.1); } 50% { box-shadow: inset 0 0 50px rgba(255,0,0,0.3); } 100% { box-shadow: inset 0 0 20px rgba(255,0,0,0.1); } }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, push, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, set, onValue, push, update, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyD69TabKnrT2AnF3ck6B1gHx5BlVNwYmXs",
@@ -383,12 +349,8 @@
         if(u === "admin" && p === "admin") {
             document.getElementById('loginModal').style.display = 'none';
             document.getElementById('locked-panel').style.display = 'none';
-            const controls = document.getElementById('control-container');
-            controls.style.display = 'flex'; 
-            
-            // Unlock Speed Slider
+            document.getElementById('control-container').style.display = 'flex'; 
             document.getElementById('speed-control-container').style.display = 'block';
-            
             logEvent("[AUTH] ACCESS GRANTED");
         } else {
             alert("INVALID CREDENTIALS");
@@ -406,11 +368,15 @@
     // --- USER GPS ---
     function getUserLocation() {
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((position) => {
+            navigator.geolocation.watchPosition((position) => {
                 userLoc = { lat: position.coords.latitude, lng: position.coords.longitude };
-                logEvent("[GPS] USER LOC FOUND");
+                // Update distance immediately if mapLoc exists
+                if(mapLoc.lat !== 0) {
+                     const d = calcDistance(userLoc.lat, userLoc.lng, mapLoc.lat, mapLoc.lng);
+                     document.getElementById('user-dist').innerText = d.toFixed(2) + " km";
+                }
             }, () => {
-                logEvent("[GPS] PERMISSION DENIED");
+                logEvent("[GPS] DENIED");
             });
         }
     }
@@ -427,17 +393,19 @@
     function deg2rad(deg) { return deg * (Math.PI/180); }
 
     // --- CAM SYNC ---
+    let currentCamUrl = "";
     const camUrlRef = ref(db, 'cam_url');
     onValue(camUrlRef, (snapshot) => {
       const rawUrl = snapshot.val();
       if(rawUrl) {
         const url = rawUrl.trim().replace(/['"]+/g, '');
-        logEvent("[SYS] LINK: " + url.substring(8, 20) + "...");
-        if(document.getElementById('cam-url').value === "") {
-            document.getElementById('cam-url').value = url;
-            connectCams(url);
-        } else {
-            connectCams(url);
+        if(url !== currentCamUrl) {
+            currentCamUrl = url;
+            logEvent("[SYS] NEW CAM LINK");
+            if(document.getElementById('cam-url').value === "") {
+                document.getElementById('cam-url').value = url;
+                connectCams(url);
+            }
         }
       }
     });
@@ -475,27 +443,23 @@
       if(url && url.length > 5) {
         url = url.trim();
         const ts = new Date().getTime();
-        const video1 = url + "/video1?t=" + ts;
-        const video2 = url + "/video2?t=" + ts;
-        const video3 = url + "/video3?t=" + ts;
-        const video4 = url + "/video4?t=" + ts;
+        const v1 = url + "/video1?t=" + ts;
+        const v2 = url + "/video2?t=" + ts;
+        const v3 = url + "/video3?t=" + ts;
+        const v4 = url + "/video4?t=" + ts;
         
         logEvent("[VID] STREAM SYNCED");
         
-        document.getElementById('stream1').src = video1; 
-        document.getElementById('stream2').src = video2;
-        document.getElementById('stream3').src = video3; 
-        document.getElementById('stream4').src = video4;
+        const c1=document.getElementById('stream1'), c2=document.getElementById('stream2');
+        const c3=document.getElementById('stream3'), c4=document.getElementById('stream4');
         
-        // Show/Hide logic
-        const show = (id) => { document.getElementById('stream'+id).style.display='block'; document.getElementById('nosig'+id).style.display='none'; };
-        const hide = (id) => { document.getElementById('stream'+id).style.display='none'; document.getElementById('nosig'+id).style.display='block'; };
+        c1.src=v1; c2.src=v2; c3.src=v3; c4.src=v4;
         
-        for(let i=1; i<=4; i++) {
-            let img = document.getElementById('stream'+i);
-            img.onload = () => show(i);
-            img.onerror = () => hide(i);
-        }
+        const setupCam = (img, noSig) => {
+            img.onload = () => { img.style.display='block'; document.getElementById(noSig).style.display='none'; };
+            img.onerror = () => { img.style.display='none'; document.getElementById(noSig).style.display='block'; };
+        };
+        setupCam(c1, 'nosig1'); setupCam(c2, 'nosig2'); setupCam(c3, 'nosig3'); setupCam(c4, 'nosig4');
       }
     }
 
@@ -553,10 +517,41 @@
       }
     });
 
+    function saveLog(stopTime) {
+        if(!startTime) return;
+        const dur = ((stopTime - startTime) / 1000).toFixed(1);
+        const logData = {
+            start: startTime.toLocaleString(),
+            stop: stopTime.toLocaleString(),
+            duration: dur,
+            max_speed: maxSpeed.toFixed(1),
+            max_roughness: maxRoughness.toFixed(2),
+            ts: Date.now()
+        };
+        push(ref(db, 'mission_logs'), logData);
+    }
+
+    window.showLogs = function() {
+        document.getElementById('logsModal').style.display = 'flex';
+        const tbody = document.getElementById('logsBody');
+        tbody.innerHTML = "<tr><td colspan='5'>Loading...</td></tr>";
+        
+        const q = query(ref(db, 'mission_logs'), limitToLast(10));
+        onValue(q, (snap) => {
+            tbody.innerHTML = "";
+            const logs = [];
+            snap.forEach(c => logs.unshift(c.val()));
+            if(logs.length===0) { tbody.innerHTML="<tr><td colspan='5'>No Data</td></tr>"; return; }
+            logs.forEach(l => {
+                tbody.innerHTML += `<tr><td>${l.start.split(',')[1]}</td><td>${l.duration}s</td><td style="color:cyan">${l.max_speed}</td><td style="color:yellow">${l.max_roughness}</td><td>OK</td></tr>`;
+            });
+        }, {onlyOnce:true});
+    }
+
     function updateUI(data) {
       const speed = data.speed || 0;
       document.getElementById('speed-val').innerText = speed.toFixed(1);
-      const offset = 565 - ((Math.min(speed, 20) / 20) * 565);
+      const offset = 440 - ((Math.min(speed, 20) / 20) * 440);
       document.getElementById('gauge-ring').style.strokeDashoffset = offset;
       
       // Simulate Noise if Moving (Physics fallback)
@@ -637,37 +632,28 @@
     let timeLabels = [], speedHistory = [], vibHistory = [];
 
     function initMap() { 
-      // INITIAL ZOOM 10 - STREET MAP
+      // INITIAL ZOOM 10 - GOOGLE STREET STYLE (OSM)
       map = L.map('map').setView([SEMENYIH_LAT, SEMENYIH_LNG], 10); 
-      // STANDARD OSM TILES (Street Map Style)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
+      
+      // Google Streets Tile Layer (Using mt1.google.com)
+      L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',{
+        maxZoom: 20,
+        subdomains:['mt0','mt1','mt2','mt3']
       }).addTo(map);
       
-      // Initial Marker - RED DOT
+      // Initial Marker
       marker = L.circleMarker([SEMENYIH_LAT, SEMENYIH_LNG], {
-            color: 'red',
-            fillColor: '#f03',
-            fillOpacity: 1,
-            radius: 10,
-            weight: 3
+            color: 'red', fillColor: '#f03', fillOpacity: 1, radius: 10, weight: 3
       }).addTo(map);
     }
     
     function updateMap(lat, lng) { 
         if (!map) return; 
         if (marker) map.removeLayer(marker);
-        
-        // Red Pulsing Dot Marker
         marker = L.circleMarker([lat, lng], {
-            color: 'red',
-            fillColor: '#f03',
-            fillOpacity: 1,
-            radius: 10,
-            weight: 3
+            color: 'red', fillColor: '#f03', fillOpacity: 1, radius: 10, weight: 3
         }).addTo(map);
-        
-        // Auto Zoom to Location
+        // Auto Zoom
         map.setView([lat, lng], 18); 
     }
     
@@ -683,13 +669,11 @@
         if(timeLabels.length > 20) { timeLabels.shift(); speedHistory.shift(); vibHistory.shift(); }
         timeLabels.push(now); 
         
-        // Sim data for chart with Jitter
         let v = data.vibration || 0;
         if(data.status === "MOVING") {
              if (v === 0) v = (Math.random() * (0.13 - 0.04) + 0.04);
              v += (Math.random() - 0.5) * 0.05; 
         }
-        
         speedHistory.push(data.speed || 0); vibHistory.push(v);
         if(speedChart) { speedChart.data.labels = timeLabels; speedChart.data.datasets[0].data = speedHistory; speedChart.update(); vibChart.data.labels = timeLabels; vibChart.data.datasets[0].data = vibHistory; vibChart.update(); }
     }
@@ -706,14 +690,20 @@
             updateTime(); setInterval(updateTime, 1000);
             getUserLocation();
             
-            // Initialize UI to Default (Meters)
+            const DEFAULT_CAM_URL = "https://preceding-headlines-directories-clearance.trycloudflare.com";
+            if(document.getElementById('cam-url').value === "") {
+               // document.getElementById('cam-url').value = DEFAULT_CAM_URL;
+               // connectCams(DEFAULT_CAM_URL);
+            }
+            
+            // DEFAULT SLIDER: 25%
+            document.querySelector('.spd-slider').value = 25;
+            updateSpeed(25);
+            
+            // DEFAULT NAV: Meters
             document.getElementById('move-mode').value = "meters";
             updateNavMode();
             
-            const DEFAULT_CAM_URL = "https://preceding-headlines-directories-clearance.trycloudflare.com";
-            if(document.getElementById('cam-url').value === "") {
-               document.getElementById('cam-url').value = DEFAULT_CAM_URL;
-            }
         }, 1000); 
     }
     window.openData = () => document.getElementById('dataModal').style.display = 'block';
@@ -727,7 +717,7 @@
   </header>
   
   <div class="cockpit">
-    <!-- CAMS -->
+    <!-- CAMERAS (4-Grid) -->
     <div class="video-section">
       <div class="cam-box"><div class="scan-line"></div><div class="cam-label">CAM 01 // FRONT</div><div class="cam-overlay"></div><img id="stream1" class="stream-img"><div id="nosig1" class="no-sig">NO SIGNAL</div></div>
       <div class="cam-box"><div class="scan-line"></div><div class="cam-label">CAM 02 // REAR</div><div class="cam-overlay"></div><img id="stream2" class="stream-img"><div id="nosig2" class="no-sig">NO SIGNAL</div></div>
@@ -749,8 +739,8 @@
       <!-- NEW: SPEED SLIDER (HIDDEN UNTIL LOGIN) -->
       <div id="speed-control-container" style="display:none; width:80%; margin-top:20px; animation: slideDown 0.5s ease-out;">
         <div class="spd-label">THROTTLE CONTROL</div>
-        <input type="range" class="spd-slider" min="25" max="200" value="100" oninput="updateSpeed(this.value)">
-        <div id="spd-lbl" class="spd-label" style="color:var(--cyber-blue); font-size:16px;">100%</div>
+        <input type="range" class="spd-slider" min="25" max="200" value="25" oninput="updateSpeed(this.value)">
+        <div id="spd-lbl" class="spd-label" style="color:var(--cyber-blue); font-size:16px;">25%</div>
       </div>
     </div>
 
@@ -776,7 +766,7 @@
     <div id="control-container" class="control-container">
       <div class="nav-panel">
         <div class="nav-row"><label>NAV MODE:</label><select id="move-mode" onchange="updateNavMode()"><option value="hold">AUTO HOLD (MANUAL)</option><option value="meters" selected>METERS (AUTO)</option><option value="km">KILOMETERS (AUTO)</option></select></div>
-        <div class="nav-row slider-container" id="slider-cont"><label>DIST:</label><input type="range" id="dist-slider" oninput="updateSlider(this.value)"><div id="slider-val" class="slider-val">N/A</div></div>
+        <div class="nav-row slider-container" id="slider-cont"><label>DIST:</label><input type="range" id="dist-slider" oninput="updateSlider(this.value)"><div id="slider-val" class="slider-val">0.5 m</div></div>
         <button class="btn-config" onclick="toggleCamConfig()">CONFIGURE LINK +</button>
         <div id="cam-config-area"><input type="text" id="cam-url" placeholder="Paste Cloudflare URL..."><button onclick="connectCams()" style="width:100%; margin-top:5px; background:var(--cyber-blue); border:none; color:black; font-weight:bold; cursor:pointer;">CONNECT</button></div>
       </div>
