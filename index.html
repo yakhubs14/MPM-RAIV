@@ -19,12 +19,11 @@
       --cyber-yellow: #fcee0a;
       --bg-dark: #020204;
       --panel-bg: rgba(10, 15, 20, 0.9);
-      --border-glow: 0 0 15px rgba(0, 240, 255, 0.4);
     }
 
     * { box-sizing: border-box; user-select: none; }
 
-    /* Custom Scrollbar for Sci-Fi Feel */
+    /* Custom Scrollbar */
     ::-webkit-scrollbar { width: 10px; }
     ::-webkit-scrollbar-track { background: #000; border-left: 1px solid #333; }
     ::-webkit-scrollbar-thumb { background: var(--cyber-blue); border-radius: 0; }
@@ -42,11 +41,10 @@
       color: white;
       min-height: 100vh; 
       display: flex; flex-direction: column;
-      overflow-y: auto; /* Enable vertical scroll */
-      overflow-x: hidden;
+      overflow-y: auto; overflow-x: hidden;
     }
 
-    /* --- TOP HEADER --- */
+    /* --- HEADER --- */
     header {
       height: 60px;
       background: linear-gradient(90deg, #000, #0a1520, #000);
@@ -54,8 +52,7 @@
       display: flex; justify-content: space-between; align-items: center;
       padding: 0 15px;
       box-shadow: 0 5px 20px rgba(0, 240, 255, 0.2);
-      z-index: 100;
-      flex-shrink: 0; /* Prevent header shrinking */
+      z-index: 100; flex-shrink: 0;
     }
     .brand { font-size: 20px; font-weight: 800; color: var(--cyber-blue); text-shadow: 0 0 15px var(--cyber-blue); letter-spacing: 2px; }
     .status-bar { display: flex; gap: 15px; font-size: 12px; color: #888; align-items: center; }
@@ -66,8 +63,7 @@
     .cockpit {
       flex: 1;
       display: grid;
-      /* Desktop: Top (Video), Middle (Map/Data - Fixed Height), Bottom (Controls) */
-      grid-template-rows: minmax(500px, auto) minmax(250px, auto) auto; 
+      grid-template-rows: minmax(400px, auto) minmax(250px, auto) auto; 
       grid-template-columns: 320px 1fr 320px;
       gap: 15px;
       padding: 15px;
@@ -101,14 +97,14 @@
       font-weight: 700;
     }
 
-    /* --- VIDEO FEEDS (4-CAMERA GRID) --- */
+    /* --- VIDEO FEEDS --- */
     .video-section {
       grid-column: 1 / -1; grid-row: 1 / 2;
       display: grid;
       grid-template-columns: 1fr 1fr; 
       grid-template-rows: 1fr 1fr;
       gap: 10px;
-      min-height: 500px; /* Increased height for 4 cams */
+      min-height: 500px; 
     }
     .cam-box {
       background: #000;
@@ -117,8 +113,14 @@
       border: 2px solid #222;
       overflow: hidden;
       box-shadow: 0 0 20px rgba(0,0,0,0.8);
+      /* Optimization for smoother rendering */
+      transform: translateZ(0); 
     }
-    .stream-img { width: 100%; height: 100%; object-fit: contain; display: none; }
+    .stream-img { 
+        width: 100%; height: 100%; object-fit: contain; display: none;
+        /* Force GPU acceleration */
+        will-change: transform; 
+    }
     .cam-label {
       position: absolute; top: 10px; left: 10px;
       background: rgba(0,0,0,0.8); color: var(--cyber-red);
@@ -130,7 +132,7 @@
       background: rgba(0, 240, 255, 0.8);
       box-shadow: 0 0 15px var(--cyber-blue);
       animation: scan 4s linear infinite;
-      z-index: 10;
+      z-index: 5;
     }
     .no-sig { color: #444; font-size: 14px; letter-spacing: 3px; animation: textFlicker 3s infinite; }
 
@@ -142,50 +144,70 @@
       box-shadow: 0 0 10px rgba(5, 255, 161, 0.1);
     }
     .map-container { flex: 1; position: relative; overflow: hidden; margin: 10px; border: 1px solid #333; }
-    #map { width: 100%; height: 100%; background: #fff; } /* White background for Google Style */
-    
+    #map { width: 100%; height: 100%; background: #fff; }
     .map-overlay { position: absolute; bottom: 10px; right: 10px; z-index: 999; }
     .btn-dir {
       background: var(--cyber-green); color: black; border: none;
       padding: 8px 12px; font-weight: bold; font-family: 'Oxanium';
       cursor: pointer; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
-      box-shadow: 0 0 10px var(--cyber-green);
-      transition: 0.2s;
+      box-shadow: 0 0 10px var(--cyber-green); transition: 0.2s;
     }
     .btn-dir:hover { transform: scale(1.05); filter: brightness(1.2); }
 
-    /* --- SPEEDOMETER --- */
+    /* --- CAR-STYLE SPEEDOMETER --- */
     .speed-panel { 
       grid-column: 2 / 3; grid-row: 2 / 3; 
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       border-top: 4px solid var(--cyber-blue);
     }
-    .gauge-container { position: relative; width: 200px; height: 200px; margin-top: 10px; display:flex; align-items:center; justify-content:center; }
-    svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-    circle { fill: none; stroke-width: 12; stroke-linecap: round; }
-    .bg-ring { stroke: #222; }
-    .fg-ring { 
-        stroke: var(--cyber-blue); stroke-dasharray: 565; stroke-dashoffset: 565; 
-        transition: stroke-dashoffset 0.5s ease-out; /* Smoother transition */
-        filter: drop-shadow(0 0 10px var(--cyber-blue)); 
+    .gauge-wrapper {
+      position: relative; width: 220px; height: 220px; margin-top: 10px;
+      background: radial-gradient(circle, #111 60%, #222 70%);
+      border-radius: 50%;
+      border: 4px solid #333;
+      box-shadow: 0 0 20px rgba(0,0,0,0.8), inset 0 0 30px black;
     }
     
+    /* Ticks */
+    .tick-mark {
+        position: absolute; width: 2px; height: 10px; background: #555;
+        left: 50%; top: 0; transform-origin: 50% 110px; /* Pivot from center */
+    }
+    .tick-mark.major { height: 15px; background: white; width: 3px; }
+
+    /* Needle */
+    .needle {
+        position: absolute; top: 20px; left: 50%; 
+        width: 4px; height: 90px; background: var(--cyber-red);
+        transform-origin: bottom center;
+        transform: translateX(-50%) rotate(-135deg); /* Start at 0 */
+        transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        z-index: 5;
+        border-radius: 50% 50% 0 0;
+        box-shadow: 0 0 5px var(--cyber-red);
+    }
+    .needle-cap {
+        position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
+        background: #444; border-radius: 50%;
+        transform: translate(-50%, -50%);
+        border: 2px solid #666; z-index: 6;
+    }
+
     .speed-readout {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      text-align: center; width: 100%;
+      position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+      text-align: center; z-index: 4;
     }
     .big-num { 
-        font-size: 64px; font-weight: 800; color: white; line-height: 1; 
-        text-shadow: 0 0 20px rgba(0, 240, 255, 0.6); 
-        display: block; margin: 0 auto;
+        font-size: 48px; font-weight: 800; color: white; line-height: 1; 
+        text-shadow: 0 0 15px rgba(255,255,255,0.3); font-family: 'Share Tech Mono';
     }
-    .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; }
+    .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; font-weight:bold; }
 
     /* SLIDER */
-    #speed-control-container { display: none; width: 90%; margin-top: 15px; animation: slideDown 0.5s ease-out; }
+    #speed-control-container { display: none; width: 85%; margin-top: 10px; animation: slideDown 0.5s ease-out; }
     .spd-slider { width: 100%; -webkit-appearance: none; height: 8px; background: #333; border-radius: 4px; outline: none; }
     .spd-slider::-webkit-slider-thumb { 
-        -webkit-appearance: none; width: 24px; height: 24px; background: var(--cyber-yellow); 
+        -webkit-appearance: none; width: 22px; height: 22px; background: var(--cyber-yellow); 
         border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px var(--cyber-yellow); border: 2px solid white; 
     }
     .spd-label { text-align: center; color: var(--cyber-yellow); font-size: 14px; margin-top: 5px; font-weight: bold; font-family: 'Share Tech Mono'; }
@@ -206,11 +228,83 @@
       overflow-y: auto; opacity: 0.9; box-shadow: inset 0 0 10px rgba(0,255,0,0.1);
     }
 
-    /* --- CONTROLS --- */
-    .control-container { grid-column: 1 / -1; grid-row: 3 / 4; display: flex; gap: 15px; padding-bottom: 20px; }
+    /* --- BOTTOM CONTROLS --- */
+    .control-container {
+      grid-column: 1 / -1; grid-row: 3 / 4;
+      display: flex; gap: 15px;
+      padding-bottom: 20px;
+    }
+
+    /* NAV SETTINGS (Left) */
+    .nav-panel {
+      flex: 1.2;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid var(--cyber-blue);
+      padding: 10px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 20px);
+    }
     
+    .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; font-size: 12px; }
+    select {
+      background: #000; color: white; border: 1px solid var(--cyber-blue);
+      padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none; text-transform: uppercase;
+    }
+
+    /* Expandable Cam Link */
+    #cam-config-area { display: none; margin-top: 5px; animation: slideDown 0.3s ease; }
+    input[type=text] {
+      background: #111; color: var(--cyber-red); border: 1px solid var(--cyber-red);
+      padding: 5px; font-family: 'Oxanium'; font-size: 12px; width: 100%; outline: none;
+    }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* SLIDER STYLING */
+    .slider-container { width: 100%; display: flex; align-items: center; gap: 10px; opacity: 0.3; transition: 0.3s; pointer-events: none; margin-top: 5px; }
+    .slider-active { opacity: 1; pointer-events: auto; }
+    
+    input[type=range] { flex: 1; -webkit-appearance: none; height: 10px; background: #222; outline: none; border-radius: 5px; border: 1px solid #444; }
+    input[type=range]::-webkit-slider-thumb { 
+      -webkit-appearance: none; width: 24px; height: 24px; 
+      background: var(--cyber-blue); cursor: pointer; border-radius: 50%; 
+      box-shadow: 0 0 15px var(--cyber-blue); border: 2px solid white;
+    }
+    .slider-val { width: 80px; text-align: right; color: var(--cyber-blue); font-weight: bold; font-size: 18px; }
+
+    /* BUTTONS (Right) */
+    .control-bar { flex: 2; display: flex; gap: 10px; }
+    .btn {
+      flex: 1; border: none; outline: none;
+      font-family: 'Oxanium'; font-size: 22px; font-weight: 800; letter-spacing: 2px;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: all 0.15s;
+      clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+      text-transform: uppercase;
+      display: flex; align-items: center; justify-content: center;
+    }
+    
+    .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); box-shadow: 0 0 15px rgba(5, 255, 161, 0.1); }
+    .btn-fwd:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
+
+    .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); box-shadow: 0 0 15px rgba(255, 0, 60, 0.1); }
+    .btn-stop:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-red); transform: translateY(2px); }
+
+    .btn-bwd { background: rgba(252, 238, 10, 0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); box-shadow: 0 0 15px rgba(252, 238, 10, 0.1); }
+    .btn-bwd:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-yellow); transform: translateY(2px); }
+
+    .btn-config { 
+        background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); 
+        font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s;
+    }
+    .btn-config:hover { background: var(--cyber-red); color: white; }
+
+    .btn-data { flex: 0.4; background: rgba(0, 240, 255, 0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
+    .btn-data:hover { background: var(--cyber-blue); color: black; }
+    
+    /* LOCKED OVERLAY */
     #locked-panel {
-        grid-column: 1 / -1; grid-row: 3 / 4; display: flex; justify-content: center; align-items: center; flex-direction: column;
+        grid-column: 1 / -1; grid-row: 3 / 4;
+        display: flex; justify-content: center; align-items: center; flex-direction: column;
         background: repeating-linear-gradient(45deg, rgba(255, 0, 60, 0.05), rgba(255, 0, 60, 0.05) 10px, rgba(255, 0, 60, 0.1) 10px, rgba(255, 0, 60, 0.1) 20px);
         border: 2px dashed var(--cyber-red); padding: 40px; cursor: pointer; text-align: center;
         transition: 0.3s; animation: pulseRed 3s infinite;
@@ -219,48 +313,10 @@
     .lock-icon { font-size: 40px; margin-bottom: 10px; display: block; text-shadow: 0 0 20px var(--cyber-red); }
     .lock-text { font-size: 24px; font-weight: 800; color: var(--cyber-red); text-shadow: 0 0 10px var(--cyber-red); }
 
-    #control-container { display: none; } /* Hidden until login */
+    #control-container { display: none; } 
 
-    /* NAV SETTINGS (Left) */
-    .nav-panel {
-      flex: 1.2; background: rgba(0,0,0,0.6); border: 1px solid var(--cyber-blue); padding: 10px;
-      display: flex; flex-direction: column; justify-content: space-between;
-      clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 20px);
-    }
-    .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; font-size: 12px; }
-    select { background: #000; color: white; border: 1px solid var(--cyber-blue); padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none; text-transform: uppercase; }
-    
-    #cam-config-area { display: none; margin-top: 5px; animation: slideDown 0.3s ease; }
-    input[type=text] { background: #111; color: var(--cyber-red); border: 1px solid var(--cyber-red); padding: 5px; font-family: 'Oxanium'; font-size: 12px; width: 100%; outline: none; }
-    
-    /* Nav Slider */
-    .slider-container { width: 100%; display: flex; align-items: center; gap: 10px; margin-top: 5px; }
-    input[type=range] { flex: 1; -webkit-appearance: none; height: 10px; background: #222; outline: none; border-radius: 5px; border: 1px solid #444; }
-    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; background: var(--cyber-blue); cursor: pointer; border-radius: 50%; box-shadow: 0 0 15px var(--cyber-blue); border: 2px solid white; }
-    .slider-val { width: 80px; text-align: right; color: var(--cyber-blue); font-weight: bold; font-size: 18px; }
-
-    /* Buttons */
-    .control-bar { flex: 2; display: flex; gap: 10px; }
-    .btn {
-      flex: 1; border: none; outline: none; font-family: 'Oxanium'; font-weight: 800; letter-spacing: 1px;
-      cursor: pointer; position: relative; overflow: hidden; transition: all 0.15s;
-      clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
-      text-transform: uppercase; display: flex; align-items: center; justify-content: center;
-      font-size: clamp(14px, 3vw, 22px); /* Auto resize text */
-    }
-    .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); box-shadow: 0 0 15px rgba(5, 255, 161, 0.1); }
-    .btn-fwd:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
-    .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); box-shadow: 0 0 15px rgba(255, 0, 60, 0.1); }
-    .btn-stop:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-red); transform: translateY(2px); }
-    .btn-bwd { background: rgba(252, 238, 10, 0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); box-shadow: 0 0 15px rgba(252, 238, 10, 0.1); }
-    .btn-bwd:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-yellow); transform: translateY(2px); }
-
-    .btn-config { background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s; }
-    .btn-config:hover { background: var(--cyber-red); color: white; }
-    .btn-data { flex: 0.4; background: rgba(0, 240, 255, 0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
-    .btn-data:hover { background: var(--cyber-blue); color: black; }
-
-    /* RESPONSIVE */
+    /* --- RESPONSIVE --- */
+    @media (min-width: 1025px) { .cockpit { grid-template-columns: 320px 1fr 320px; grid-template-rows: auto auto auto; } }
     @media (max-width: 1024px) { 
       .cockpit { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto; }
       .video-section { grid-column: 1 / -1; grid-row: 1; height: 320px; }
@@ -329,10 +385,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // DEFAULT: Meters
-    let navMode = "meters"; 
-    let sliderValue = 0.5; 
-    let mapLoc = { lat: 0, lng: 0 };
+    let navMode = "meters"; let sliderValue = 0.5; let mapLoc = { lat: 0, lng: 0 };
     let userLoc = null;
     
     const SEMENYIH_LAT = 2.958196;
@@ -455,6 +508,12 @@
         
         c1.src=v1; c2.src=v2; c3.src=v3; c4.src=v4;
         
+        // Add attributes for smooth streaming
+        [c1, c2, c3, c4].forEach(img => {
+            img.decoding = "sync";
+            img.loading = "eager";
+        });
+        
         const setupCam = (img, noSig) => {
             img.onload = () => { img.style.display='block'; document.getElementById(noSig).style.display='none'; };
             img.onerror = () => { img.style.display='none'; document.getElementById(noSig).style.display='block'; };
@@ -549,10 +608,17 @@
     }
 
     function updateUI(data) {
-      const speed = data.speed || 0;
-      document.getElementById('speed-val').innerText = speed.toFixed(1);
-      const offset = 440 - ((Math.min(speed, 20) / 20) * 440);
-      document.getElementById('gauge-ring').style.strokeDashoffset = offset;
+      // Convert KM/H to M/S for Display
+      let speedKmh = data.speed || 0;
+      if (speedKmh < 0.5) speedKmh = 0.0; // Deadzone
+      let speedMs = speedKmh / 3.6;
+      
+      document.getElementById('speed-val').innerText = speedMs.toFixed(1);
+      
+      // Gauge Rotation: 0 m/s = -135deg, Max 6 m/s = +135deg (Total 270 range)
+      const maxMs = 6.0;
+      const rotation = -135 + ((Math.min(speedMs, maxMs) / maxMs) * 270);
+      document.getElementById('needle').style.transform = `translateX(-50%) rotate(${rotation}deg)`;
       
       // Simulate Noise if Moving (Physics fallback)
       let vib = data.vibration || 0;
@@ -641,9 +707,13 @@
         subdomains:['mt0','mt1','mt2','mt3']
       }).addTo(map);
       
-      // Initial Marker
+      // Initial Marker - RED DOT
       marker = L.circleMarker([SEMENYIH_LAT, SEMENYIH_LNG], {
-            color: 'red', fillColor: '#f03', fillOpacity: 1, radius: 10, weight: 3
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 1,
+            radius: 10,
+            weight: 3
       }).addTo(map);
     }
     
@@ -733,8 +803,22 @@
 
     <!-- SPEED & SLIDER -->
     <div class="panel speed-panel">
-      <div class="panel-header"><span>SPEED CONTROL</span><span>KM/H</span></div>
-      <div class="gauge-container"><svg><circle class="bg-ring" cx="100" cy="100" r="80"></circle><circle id="gauge-ring" class="fg-ring" cx="100" cy="100" r="80"></circle></svg><div class="speed-readout"><div id="speed-val" class="big-num">0.0</div><div class="unit">KM/H</div></div></div>
+      <div class="panel-header"><span>SPEED CONTROL</span><span>M/S</span></div>
+      <div class="gauge-wrapper">
+        <div class="gauge-inner">
+            <!-- Tick Marks will be generated here if we used JS, but using simple markers for now -->
+            <div class="tick-mark major" style="transform: rotate(-135deg);"></div>
+            <div class="tick-mark major" style="transform: rotate(-90deg);"></div>
+            <div class="tick-mark major" style="transform: rotate(-45deg);"></div>
+            <div class="tick-mark major" style="transform: rotate(0deg);"></div>
+            <div class="tick-mark major" style="transform: rotate(45deg);"></div>
+            <div class="tick-mark major" style="transform: rotate(90deg);"></div>
+            <div class="tick-mark major" style="transform: rotate(135deg);"></div>
+        </div>
+        <div id="needle" class="needle"></div>
+        <div class="needle-cap"></div>
+        <div class="speed-readout"><div id="speed-val" class="big-num">0.0</div><div class="unit">M/S</div></div>
+      </div>
       
       <!-- NEW: SPEED SLIDER (HIDDEN UNTIL LOGIN) -->
       <div id="speed-control-container" style="display:none; width:80%; margin-top:20px; animation: slideDown 0.5s ease-out;">
