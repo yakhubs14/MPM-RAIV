@@ -18,13 +18,14 @@
       --cyber-green: #05ffa1;
       --cyber-yellow: #fcee0a;
       --bg-dark: #020204;
-      --panel-bg: rgba(10, 15, 20, 0.9);
+      --panel-bg: rgba(10, 15, 20, 0.92);
+      --border-glow: 0 0 15px rgba(0, 240, 255, 0.4);
     }
 
     * { box-sizing: border-box; user-select: none; }
 
     /* Custom Scrollbar */
-    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: #000; border-left: 1px solid #333; }
     ::-webkit-scrollbar-thumb { background: var(--cyber-blue); border-radius: 0; }
     ::-webkit-scrollbar-thumb:hover { background: white; }
@@ -63,13 +64,12 @@
     .cockpit {
       flex: 1;
       display: grid;
-      grid-template-rows: minmax(400px, auto) minmax(250px, auto) auto; 
-      grid-template-columns: 320px 1fr 320px;
+      /* Video Grid | Data & Controls */
+      grid-template-rows: minmax(450px, auto) minmax(300px, auto) auto; 
+      grid-template-columns: 340px 1fr 340px;
       gap: 15px;
       padding: 15px;
-      width: 100%;
-      max-width: 1600px;
-      margin: 0 auto;
+      width: 100%; max-width: 1800px; margin: 0 auto;
     }
 
     /* --- PANEL STYLING --- */
@@ -87,17 +87,12 @@
     
     .panel-header {
       background: linear-gradient(90deg, rgba(0,240,255,0.1), transparent);
-      padding: 8px 15px;
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: var(--cyber-blue);
-      border-bottom: 1px solid rgba(0,240,255,0.2);
-      display: flex; justify-content: space-between;
-      text-transform: uppercase;
-      font-weight: 700;
+      padding: 8px 15px; font-size: 11px; letter-spacing: 2px; color: var(--cyber-blue);
+      border-bottom: 1px solid rgba(0,240,255,0.2); display: flex; justify-content: space-between;
+      text-transform: uppercase; font-weight: 700;
     }
 
-    /* --- VIDEO FEEDS --- */
+    /* --- VIDEO FEEDS (4-CAMERA GRID) --- */
     .video-section {
       grid-column: 1 / -1; grid-row: 1 / 2;
       display: grid;
@@ -107,20 +102,12 @@
       min-height: 500px; 
     }
     .cam-box {
-      background: #000;
-      position: relative;
+      background: #000; position: relative;
       display: flex; justify-content: center; align-items: center;
-      border: 2px solid #222;
-      overflow: hidden;
+      border: 2px solid #222; overflow: hidden;
       box-shadow: 0 0 20px rgba(0,0,0,0.8);
-      /* Optimization for smoother rendering */
-      transform: translateZ(0); 
     }
-    .stream-img { 
-        width: 100%; height: 100%; object-fit: contain; display: none;
-        /* Force GPU acceleration */
-        will-change: transform; 
-    }
+    .stream-img { width: 100%; height: 100%; object-fit: contain; display: none; }
     .cam-label {
       position: absolute; top: 10px; left: 10px;
       background: rgba(0,0,0,0.8); color: var(--cyber-red);
@@ -129,10 +116,8 @@
     }
     .scan-line {
       position: absolute; top: 0; left: 0; width: 100%; height: 2px;
-      background: rgba(0, 240, 255, 0.8);
-      box-shadow: 0 0 15px var(--cyber-blue);
-      animation: scan 4s linear infinite;
-      z-index: 5;
+      background: rgba(0, 240, 255, 0.8); box-shadow: 0 0 15px var(--cyber-blue);
+      animation: scan 4s linear infinite; z-index: 5;
     }
     .no-sig { color: #444; font-size: 14px; letter-spacing: 3px; animation: textFlicker 3s infinite; }
 
@@ -144,7 +129,7 @@
       box-shadow: 0 0 10px rgba(5, 255, 161, 0.1);
     }
     .map-container { flex: 1; position: relative; overflow: hidden; margin: 10px; border: 1px solid #333; }
-    #map { width: 100%; height: 100%; background: #fff; }
+    #map { width: 100%; height: 100%; background: #e5e3df; } 
     .map-overlay { position: absolute; bottom: 10px; right: 10px; z-index: 999; }
     .btn-dir {
       background: var(--cyber-green); color: black; border: none;
@@ -159,52 +144,60 @@
       grid-column: 2 / 3; grid-row: 2 / 3; 
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       border-top: 4px solid var(--cyber-blue);
+      background: radial-gradient(circle at center, #112 0%, rgba(10,15,20,0.9) 70%);
     }
     .gauge-wrapper {
-      position: relative; width: 220px; height: 220px; margin-top: 10px;
-      background: radial-gradient(circle, #111 60%, #222 70%);
-      border-radius: 50%;
-      border: 4px solid #333;
-      box-shadow: 0 0 20px rgba(0,0,0,0.8), inset 0 0 30px black;
+        position: relative; width: 240px; height: 240px; 
+        border-radius: 50%; border: 5px solid #333;
+        box-shadow: 0 0 30px black, inset 0 0 40px black;
+        background: #050505;
+        margin-top: 10px;
     }
     
-    /* Ticks */
-    .tick-mark {
-        position: absolute; width: 2px; height: 10px; background: #555;
-        left: 50%; top: 0; transform-origin: 50% 110px; /* Pivot from center */
+    /* Dial Ticks */
+    .dial {
+        width: 100%; height: 100%; position: absolute; border-radius: 50%;
     }
-    .tick-mark.major { height: 15px; background: white; width: 3px; }
-
+    .tick {
+        position: absolute; width: 2px; height: 10px; background: #555;
+        left: 50%; top: 0; transform-origin: 50% 120px;
+    }
+    .tick.major { height: 18px; width: 4px; background: white; }
+    .tick.red { background: var(--cyber-red); }
+    
     /* Needle */
     .needle {
-        position: absolute; top: 20px; left: 50%; 
-        width: 4px; height: 90px; background: var(--cyber-red);
+        position: absolute; top: 30px; left: 50%;
+        width: 6px; height: 90px;
+        background: var(--cyber-red);
         transform-origin: bottom center;
-        transform: translateX(-50%) rotate(-135deg); /* Start at 0 */
-        transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        transform: translateX(-50%) rotate(-135deg);
+        transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Snappy movement */
         z-index: 5;
         border-radius: 50% 50% 0 0;
-        box-shadow: 0 0 5px var(--cyber-red);
+        box-shadow: 0 0 10px var(--cyber-red);
     }
     .needle-cap {
-        position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
-        background: #444; border-radius: 50%;
-        transform: translate(-50%, -50%);
-        border: 2px solid #666; z-index: 6;
+        position: absolute; top: 50%; left: 50%;
+        width: 24px; height: 24px; background: #333;
+        border: 2px solid #666; border-radius: 50%;
+        transform: translate(-50%, -50%); z-index: 6;
     }
 
+    /* Digital Readout (On Top of Needle) */
     .speed-readout {
-      position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
-      text-align: center; z-index: 4;
+        position: absolute; bottom: 45px; left: 50%; transform: translateX(-50%);
+        text-align: center; z-index: 10;
     }
     .big-num { 
-        font-size: 48px; font-weight: 800; color: white; line-height: 1; 
-        text-shadow: 0 0 15px rgba(255,255,255,0.3); font-family: 'Share Tech Mono';
+        font-size: 56px; font-weight: 800; color: white; line-height: 1; 
+        text-shadow: 0 0 10px rgba(0,0,0,0.8); /* Shadow ensures visibility over needle */
+        font-family: 'Share Tech Mono'; 
     }
     .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; font-weight:bold; }
 
     /* SLIDER */
-    #speed-control-container { display: none; width: 85%; margin-top: 10px; animation: slideDown 0.5s ease-out; }
+    #speed-control-container { display: none; width: 85%; margin-top: 15px; animation: slideDown 0.5s ease-out; }
     .spd-slider { width: 100%; -webkit-appearance: none; height: 8px; background: #333; border-radius: 4px; outline: none; }
     .spd-slider::-webkit-slider-thumb { 
         -webkit-appearance: none; width: 22px; height: 22px; background: var(--cyber-yellow); 
@@ -316,12 +309,12 @@
     #control-container { display: none; } 
 
     /* --- RESPONSIVE --- */
-    @media (min-width: 1025px) { .cockpit { grid-template-columns: 320px 1fr 320px; grid-template-rows: auto auto auto; } }
+    @media (min-width: 1025px) { .cockpit { grid-template-columns: 340px 1fr 340px; grid-template-rows: auto auto auto; } }
     @media (max-width: 1024px) { 
       .cockpit { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto; }
-      .video-section { grid-column: 1 / -1; grid-row: 1; height: 320px; }
-      .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 250px; }
-      .data-panel { grid-column: 2 / 3; grid-row: 2; height: 250px; }
+      .video-section { grid-column: 1 / -1; grid-row: 1; height: 350px; }
+      .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 300px; }
+      .data-panel { grid-column: 2 / 3; grid-row: 2; height: 300px; }
       .map-panel { grid-column: 1 / -1; grid-row: 3; height: 300px; }
       #locked-panel, #control-container { grid-column: 1 / -1; grid-row: 4; flex-direction: column; height: auto; }
       .nav-panel { height: auto; padding: 15px; } .control-bar { height: 90px; }
@@ -345,6 +338,11 @@
     #dataModal, #loginModal, #logsModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; padding: 20px; overflow-y: auto; justify-content: center; align-items: center; }
     .modal-content { max-width: 800px; margin: 40px auto; color: white; border: 1px solid var(--cyber-blue); padding: 20px; background: #111; box-shadow: 0 0 30px var(--cyber-blue); }
     .chart-box { background: #000; border: 1px solid #333; padding: 10px; margin-bottom: 20px; }
+    
+    /* Table Fix */
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td { border: 1px solid #444; padding: 10px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    th { color: var(--cyber-blue); background: rgba(0,240,255,0.1); }
     
     /* Login Box */
     .login-box { background: #050505; border: 2px solid var(--cyber-red); padding: 40px; text-align: center; box-shadow: 0 0 40px var(--cyber-red); width: 100%; max-width: 400px; }
@@ -508,12 +506,6 @@
         
         c1.src=v1; c2.src=v2; c3.src=v3; c4.src=v4;
         
-        // Add attributes for smooth streaming
-        [c1, c2, c3, c4].forEach(img => {
-            img.decoding = "sync";
-            img.loading = "eager";
-        });
-        
         const setupCam = (img, noSig) => {
             img.onload = () => { img.style.display='block'; document.getElementById(noSig).style.display='none'; };
             img.onerror = () => { img.style.display='none'; document.getElementById(noSig).style.display='block'; };
@@ -610,7 +602,7 @@
     function updateUI(data) {
       // Convert KM/H to M/S for Display
       let speedKmh = data.speed || 0;
-      if (speedKmh < 0.5) speedKmh = 0.0; // Deadzone
+      if (speedKmh < 0.5) speedKmh = 0.0; // Deadzone for instant 0
       let speedMs = speedKmh / 3.6;
       
       document.getElementById('speed-val').innerText = speedMs.toFixed(1);
@@ -720,10 +712,17 @@
     function updateMap(lat, lng) { 
         if (!map) return; 
         if (marker) map.removeLayer(marker);
+        
+        // Red Pulsing Dot Marker
         marker = L.circleMarker([lat, lng], {
-            color: 'red', fillColor: '#f03', fillOpacity: 1, radius: 10, weight: 3
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 1,
+            radius: 10,
+            weight: 3
         }).addTo(map);
-        // Auto Zoom
+        
+        // Auto Zoom to Location
         map.setView([lat, lng], 18); 
     }
     
@@ -739,11 +738,13 @@
         if(timeLabels.length > 20) { timeLabels.shift(); speedHistory.shift(); vibHistory.shift(); }
         timeLabels.push(now); 
         
+        // Sim data for chart with Jitter
         let v = data.vibration || 0;
         if(data.status === "MOVING") {
              if (v === 0) v = (Math.random() * (0.13 - 0.04) + 0.04);
-             v += (Math.random() - 0.5) * 0.05; 
+             v += (Math.random() - 0.5) * 0.05; // ECG Jitter
         }
+        
         speedHistory.push(data.speed || 0); vibHistory.push(v);
         if(speedChart) { speedChart.data.labels = timeLabels; speedChart.data.datasets[0].data = speedHistory; speedChart.update(); vibChart.data.labels = timeLabels; vibChart.data.datasets[0].data = vibHistory; vibChart.update(); }
     }
@@ -804,23 +805,32 @@
     <!-- SPEED & SLIDER -->
     <div class="panel speed-panel">
       <div class="panel-header"><span>SPEED CONTROL</span><span>M/S</span></div>
+      
+      <!-- DIAL GAUGE (NEEDLE) -->
       <div class="gauge-wrapper">
-        <div class="gauge-inner">
-            <!-- Tick Marks will be generated here if we used JS, but using simple markers for now -->
-            <div class="tick-mark major" style="transform: rotate(-135deg);"></div>
-            <div class="tick-mark major" style="transform: rotate(-90deg);"></div>
-            <div class="tick-mark major" style="transform: rotate(-45deg);"></div>
-            <div class="tick-mark major" style="transform: rotate(0deg);"></div>
-            <div class="tick-mark major" style="transform: rotate(45deg);"></div>
-            <div class="tick-mark major" style="transform: rotate(90deg);"></div>
-            <div class="tick-mark major" style="transform: rotate(135deg);"></div>
-        </div>
+        <!-- Ticks -->
+        <div class="tick-mark major" style="transform: rotate(-135deg);"></div>
+        <div class="tick-mark" style="transform: rotate(-112.5deg);"></div>
+        <div class="tick-mark major" style="transform: rotate(-90deg);"></div>
+        <div class="tick-mark" style="transform: rotate(-67.5deg);"></div>
+        <div class="tick-mark major" style="transform: rotate(-45deg);"></div>
+        <div class="tick-mark" style="transform: rotate(-22.5deg);"></div>
+        <div class="tick-mark major" style="transform: rotate(0deg);"></div>
+        <div class="tick-mark" style="transform: rotate(22.5deg);"></div>
+        <div class="tick-mark major" style="transform: rotate(45deg);"></div>
+        <div class="tick-mark" style="transform: rotate(67.5deg);"></div>
+        <div class="tick-mark major" style="transform: rotate(90deg);"></div>
+        <div class="tick-mark" style="transform: rotate(112.5deg);"></div>
+        <div class="tick-mark major" style="transform: rotate(135deg);"></div>
+
+        <!-- NEEDLE (Pivot) -->
         <div id="needle" class="needle"></div>
         <div class="needle-cap"></div>
+
         <div class="speed-readout"><div id="speed-val" class="big-num">0.0</div><div class="unit">M/S</div></div>
       </div>
       
-      <!-- NEW: SPEED SLIDER (HIDDEN UNTIL LOGIN) -->
+      <!-- SPEED SLIDER (HIDDEN UNTIL LOGIN) -->
       <div id="speed-control-container" style="display:none; width:80%; margin-top:20px; animation: slideDown 0.5s ease-out;">
         <div class="spd-label">THROTTLE CONTROL</div>
         <input type="range" class="spd-slider" min="25" max="200" value="25" oninput="updateSpeed(this.value)">
