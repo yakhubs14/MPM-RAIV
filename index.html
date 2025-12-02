@@ -65,7 +65,7 @@
       flex: 1;
       display: grid;
       /* Video Grid | Data & Controls */
-      grid-template-rows: minmax(450px, auto) minmax(300px, auto) auto; 
+      grid-template-rows: minmax(450px, auto) minmax(320px, auto) auto; 
       grid-template-columns: 340px 1fr 340px;
       gap: 15px;
       padding: 15px;
@@ -87,9 +87,15 @@
     
     .panel-header {
       background: linear-gradient(90deg, rgba(0,240,255,0.1), transparent);
-      padding: 8px 15px; font-size: 11px; letter-spacing: 2px; color: var(--cyber-blue);
-      border-bottom: 1px solid rgba(0,240,255,0.2); display: flex; justify-content: space-between;
-      text-transform: uppercase; font-weight: 700;
+      padding: 8px 15px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--cyber-blue);
+      border-bottom: 1px solid rgba(0,240,255,0.2);
+      display: flex; justify-content: space-between;
+      text-transform: uppercase;
+      font-weight: 700;
+      flex-shrink: 0;
     }
 
     /* --- VIDEO FEEDS (4-CAMERA GRID) --- */
@@ -106,8 +112,12 @@
       display: flex; justify-content: center; align-items: center;
       border: 2px solid #222; overflow: hidden;
       box-shadow: 0 0 20px rgba(0,0,0,0.8);
+      transform: translateZ(0); /* Hardware Accel */
     }
-    .stream-img { width: 100%; height: 100%; object-fit: contain; display: none; }
+    .stream-img { 
+        width: 100%; height: 100%; object-fit: contain; display: none; 
+        will-change: transform; /* Optimize rendering */
+    }
     .cam-label {
       position: absolute; top: 10px; left: 10px;
       background: rgba(0,0,0,0.8); color: var(--cyber-red);
@@ -130,6 +140,7 @@
     }
     .map-container { flex: 1; position: relative; overflow: hidden; margin: 10px; border: 1px solid #333; }
     #map { width: 100%; height: 100%; background: #e5e3df; } 
+    
     .map-overlay { position: absolute; bottom: 10px; right: 10px; z-index: 999; }
     .btn-dir {
       background: var(--cyber-green); color: black; border: none;
@@ -154,25 +165,21 @@
         margin-top: 10px;
     }
     
-    /* Dial Ticks */
-    .dial {
-        width: 100%; height: 100%; position: absolute; border-radius: 50%;
-    }
+    /* Ticks */
     .tick {
         position: absolute; width: 2px; height: 10px; background: #555;
-        left: 50%; top: 0; transform-origin: 50% 120px;
+        left: 50%; top: 0; transform-origin: 50% 120px; /* Pivot center of 240px circle */
     }
     .tick.major { height: 18px; width: 4px; background: white; }
-    .tick.red { background: var(--cyber-red); }
     
     /* Needle */
     .needle {
         position: absolute; top: 30px; left: 50%;
         width: 6px; height: 90px;
         background: var(--cyber-red);
-        transform-origin: bottom center;
-        transform: translateX(-50%) rotate(-135deg);
-        transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Snappy movement */
+        transform-origin: bottom center; /* Rotate from bottom of needle */
+        transform: translateX(-50%) rotate(-135deg); /* Start position */
+        transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
         z-index: 5;
         border-radius: 50% 50% 0 0;
         box-shadow: 0 0 10px var(--cyber-red);
@@ -184,26 +191,32 @@
         transform: translate(-50%, -50%); z-index: 6;
     }
 
-    /* Digital Readout (On Top of Needle) */
+    /* Digital Readout */
     .speed-readout {
         position: absolute; bottom: 45px; left: 50%; transform: translateX(-50%);
         text-align: center; z-index: 10;
     }
     .big-num { 
         font-size: 56px; font-weight: 800; color: white; line-height: 1; 
-        text-shadow: 0 0 10px rgba(0,0,0,0.8); /* Shadow ensures visibility over needle */
+        text-shadow: 0 0 10px rgba(0,0,0,0.8); 
         font-family: 'Share Tech Mono'; 
     }
     .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; font-weight:bold; }
 
     /* SLIDER */
-    #speed-control-container { display: none; width: 85%; margin-top: 15px; animation: slideDown 0.5s ease-out; }
-    .spd-slider { width: 100%; -webkit-appearance: none; height: 8px; background: #333; border-radius: 4px; outline: none; }
-    .spd-slider::-webkit-slider-thumb { 
-        -webkit-appearance: none; width: 22px; height: 22px; background: var(--cyber-yellow); 
-        border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px var(--cyber-yellow); border: 2px solid white; 
+    #speed-control-container { 
+        display: none; /* Hidden until login */
+        width: 85%; margin-top: 20px; animation: slideDown 0.5s ease-out;
     }
-    .spd-label { text-align: center; color: var(--cyber-yellow); font-size: 14px; margin-top: 5px; font-weight: bold; font-family: 'Share Tech Mono'; }
+    .spd-slider { 
+        width: 100%; -webkit-appearance: none; height: 12px; 
+        background: #222; border-radius: 6px; outline: none; border: 1px solid #444;
+    }
+    .spd-slider::-webkit-slider-thumb { 
+        -webkit-appearance: none; width: 28px; height: 28px; background: var(--cyber-yellow); 
+        border-radius: 50%; cursor: pointer; box-shadow: 0 0 15px var(--cyber-yellow); border: 2px solid white; 
+    }
+    .spd-label { text-align: center; color: var(--cyber-yellow); font-size: 14px; margin-top: 8px; font-weight: bold; font-family: 'Share Tech Mono'; letter-spacing: 1px; }
 
     /* --- TELEMETRY --- */
     .data-panel { grid-column: 3 / 4; grid-row: 2 / 3; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
@@ -227,6 +240,20 @@
       display: flex; gap: 15px;
       padding-bottom: 20px;
     }
+    
+    /* LOCKED OVERLAY */
+    #locked-panel {
+        grid-column: 1 / -1; grid-row: 3 / 4;
+        display: flex; justify-content: center; align-items: center; flex-direction: column;
+        background: repeating-linear-gradient(45deg, rgba(255, 0, 60, 0.05), rgba(255, 0, 60, 0.05) 10px, rgba(255, 0, 60, 0.1) 10px, rgba(255, 0, 60, 0.1) 20px);
+        border: 2px dashed var(--cyber-red); padding: 40px; cursor: pointer; text-align: center;
+        transition: 0.3s; animation: pulseRed 3s infinite;
+    }
+    #locked-panel:hover { background: rgba(255, 0, 60, 0.2); letter-spacing: 2px; }
+    .lock-icon { font-size: 40px; margin-bottom: 10px; display: block; text-shadow: 0 0 20px var(--cyber-red); }
+    .lock-text { font-size: 24px; font-weight: 800; color: var(--cyber-red); text-shadow: 0 0 10px var(--cyber-red); }
+
+    #control-container { display: none; } 
 
     /* NAV SETTINGS (Left) */
     .nav-panel {
@@ -237,7 +264,6 @@
       display: flex; flex-direction: column; justify-content: space-between;
       clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 20px);
     }
-    
     .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; font-size: 12px; }
     select {
       background: #000; color: white; border: 1px solid var(--cyber-blue);
@@ -275,7 +301,6 @@
       text-transform: uppercase;
       display: flex; align-items: center; justify-content: center;
     }
-    
     .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); box-shadow: 0 0 15px rgba(5, 255, 161, 0.1); }
     .btn-fwd:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
 
@@ -293,31 +318,17 @@
 
     .btn-data { flex: 0.4; background: rgba(0, 240, 255, 0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
     .btn-data:hover { background: var(--cyber-blue); color: black; }
-    
-    /* LOCKED OVERLAY */
-    #locked-panel {
-        grid-column: 1 / -1; grid-row: 3 / 4;
-        display: flex; justify-content: center; align-items: center; flex-direction: column;
-        background: repeating-linear-gradient(45deg, rgba(255, 0, 60, 0.05), rgba(255, 0, 60, 0.05) 10px, rgba(255, 0, 60, 0.1) 10px, rgba(255, 0, 60, 0.1) 20px);
-        border: 2px dashed var(--cyber-red); padding: 40px; cursor: pointer; text-align: center;
-        transition: 0.3s; animation: pulseRed 3s infinite;
-    }
-    #locked-panel:hover { background: rgba(255, 0, 60, 0.2); letter-spacing: 2px; }
-    .lock-icon { font-size: 40px; margin-bottom: 10px; display: block; text-shadow: 0 0 20px var(--cyber-red); }
-    .lock-text { font-size: 24px; font-weight: 800; color: var(--cyber-red); text-shadow: 0 0 10px var(--cyber-red); }
-
-    #control-container { display: none; } 
 
     /* --- RESPONSIVE --- */
     @media (min-width: 1025px) { .cockpit { grid-template-columns: 340px 1fr 340px; grid-template-rows: auto auto auto; } }
     @media (max-width: 1024px) { 
       .cockpit { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto; }
       .video-section { grid-column: 1 / -1; grid-row: 1; height: 350px; }
-      .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 300px; }
-      .data-panel { grid-column: 2 / 3; grid-row: 2; height: 300px; }
+      .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 280px; }
+      .data-panel { grid-column: 2 / 3; grid-row: 2; height: 280px; }
       .map-panel { grid-column: 1 / -1; grid-row: 3; height: 300px; }
       #locked-panel, #control-container { grid-column: 1 / -1; grid-row: 4; flex-direction: column; height: auto; }
-      .nav-panel { height: auto; padding: 15px; } .control-bar { height: 90px; }
+      .nav-panel { height: auto; padding: 15px; } .control-bar { height: 100px; }
     }
     @media (max-width: 600px) { 
       .cockpit { display: flex; flex-direction: column; height: auto; gap: 20px; padding-bottom: 40px; }
@@ -506,6 +517,12 @@
         
         c1.src=v1; c2.src=v2; c3.src=v3; c4.src=v4;
         
+        // Video optimization
+        [c1, c2, c3, c4].forEach(img => {
+            img.decoding = "sync";
+            img.loading = "eager";
+        });
+
         const setupCam = (img, noSig) => {
             img.onload = () => { img.style.display='block'; document.getElementById(noSig).style.display='none'; };
             img.onerror = () => { img.style.display='none'; document.getElementById(noSig).style.display='block'; };
@@ -712,17 +729,10 @@
     function updateMap(lat, lng) { 
         if (!map) return; 
         if (marker) map.removeLayer(marker);
-        
-        // Red Pulsing Dot Marker
         marker = L.circleMarker([lat, lng], {
-            color: 'red',
-            fillColor: '#f03',
-            fillOpacity: 1,
-            radius: 10,
-            weight: 3
+            color: 'red', fillColor: '#f03', fillOpacity: 1, radius: 10, weight: 3
         }).addTo(map);
-        
-        // Auto Zoom to Location
+        // Auto Zoom
         map.setView([lat, lng], 18); 
     }
     
@@ -738,13 +748,11 @@
         if(timeLabels.length > 20) { timeLabels.shift(); speedHistory.shift(); vibHistory.shift(); }
         timeLabels.push(now); 
         
-        // Sim data for chart with Jitter
         let v = data.vibration || 0;
         if(data.status === "MOVING") {
              if (v === 0) v = (Math.random() * (0.13 - 0.04) + 0.04);
-             v += (Math.random() - 0.5) * 0.05; // ECG Jitter
+             v += (Math.random() - 0.5) * 0.05; 
         }
-        
         speedHistory.push(data.speed || 0); vibHistory.push(v);
         if(speedChart) { speedChart.data.labels = timeLabels; speedChart.data.datasets[0].data = speedHistory; speedChart.update(); vibChart.data.labels = timeLabels; vibChart.data.datasets[0].data = vibHistory; vibChart.update(); }
     }
@@ -844,7 +852,7 @@
       <div class="data-row val-vib"><span>TRACK ROUGHNESS</span> <span id="vib-val">0.00 G</span></div>
       <div class="data-row val-vib"><span>VERT MOVEMENT</span> <span id="vert-val">0.00 mm</span></div>
       <div class="data-row val-dist"><span>AUTO DISTANCE</span> <span id="dist-val">MANUAL</span></div>
-      <div class="data-row val-dist"><span>DIST TO RIV</span> <span id="user-dist">LOCATING...</span></div>
+      <div class="data-row val-dist"><span>DIST TO RAIV</span> <span id="user-dist">LOCATING...</span></div>
       <div id="terminal" class="terminal"></div>
     </div>
     
