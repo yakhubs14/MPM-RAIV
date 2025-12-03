@@ -49,7 +49,7 @@
     }
     .brand { font-size: 22px; font-weight: 800; color: var(--cyber-blue); text-shadow: 0 0 10px var(--cyber-blue); letter-spacing: 2px; white-space: nowrap; }
     
-    .header-right { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; justify-content: flex-end; flex: 1; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; flex: 1; }
     
     .time-box { 
         background: rgba(0,0,0,0.5); border: 1px solid var(--cyber-blue); 
@@ -73,7 +73,6 @@
     /* --- LAYOUT GRID --- */
     .cockpit {
       flex: 1; display: grid;
-      /* Video | Data | Controls | Terminal */
       grid-template-rows: minmax(400px, auto) minmax(350px, auto) auto 150px; 
       grid-template-columns: 350px 1fr 350px;
       gap: 15px; padding: 15px; width: 100%; max-width: 1800px; margin: 0 auto;
@@ -464,16 +463,29 @@
     window.updateDist = (v) => { sliderValue=v; document.getElementById('n-val').innerText=v+(navMode==="meters"?" m":" km"); }
 
     window.handlePress = (dir, e) => {
-        if(e && e.cancelable) e.preventDefault();
-        if (navMode === "hold") { sendCommand(dir); } 
-        else {
-            let d = (navMode === "meters") ? sliderValue : sliderValue*1000;
-            let prefix = (dir==="FORWARD"?"FWD_":"BWD_");
-            sendCommand(prefix + d);
-            logEvent(`[NAV] AUTO: ${d}m`);
+        // Use onpointerdown for responsiveness
+        if (navMode === "hold") {
+             if(e && e.cancelable) e.preventDefault();
+             sendCommand(dir);
+        } else {
+             // Distance mode: Click once to send command
+             // Check event type to avoid double firing (mousedown AND touchstart)
+             if(e.type === "pointerdown" || e.type === "click") { // Using click or pointerdown
+                let d = (navMode === "meters") ? sliderValue : sliderValue*1000;
+                let prefix = (dir==="FORWARD"?"FWD_":"BWD_");
+                sendCommand(prefix + d);
+                logEvent(`[NAV] AUTO: ${d}m`);
+             }
         }
     }
-    window.handleRelease = (e) => { if(e && e.cancelable) e.preventDefault(); if(navMode==="hold") sendCommand('STOP'); }
+
+    window.handleRelease = (e) => { 
+        if (navMode === "hold") {
+             if(e && e.cancelable) e.preventDefault();
+             sendCommand('STOP'); 
+        }
+        // Do nothing for distance mode on release
+    }
     window.sendCommand = (c) => { set(ref(db, 'command'), c); logEvent(`CMD: ${c}`); }
 
     window.connectCams = (passedUrl = null) => {
@@ -819,9 +831,9 @@
         <div id="cam-config-area"><input type="text" id="cam-url" placeholder="Paste Cloudflare URL..."><button onclick="connectCams()" style="width:100%; margin-top:5px; background:var(--cyber-blue); border:none; color:black; font-weight:bold; cursor:pointer;">CONNECT</button></div>
       </div>
       <div class="control-bar">
-        <button class="btn btn-fwd" onmousedown="handlePress('FORWARD', event)" onmouseup="handleRelease(event)" ontouchstart="handlePress('FORWARD', event)" ontouchend="handleRelease(event)" onmouseleave="handleRelease(event)" ontouchcancel="handleRelease(event)">FORWARD</button>
+        <button class="btn btn-fwd" onpointerdown="handlePress('FORWARD', event)" onpointerup="handleRelease(event)" onpointercancel="handleRelease(event)">FORWARD</button>
         <button class="btn btn-stop" onclick="sendCommand('STOP')">STOP</button>
-        <button class="btn btn-bwd" onmousedown="handlePress('BACKWARD', event)" onmouseup="handleRelease(event)" ontouchstart="handlePress('BACKWARD', event)" ontouchend="handleRelease(event)" onmouseleave="handleRelease(event)" ontouchcancel="handleRelease(event)">BACKWARD</button>
+        <button class="btn btn-bwd" onpointerdown="handlePress('BACKWARD', event)" onpointerup="handleRelease(event)" onpointercancel="handleRelease(event)">BACKWARD</button>
         <button class="btn btn-data" onclick="showData()">DATA</button>
       </div>
     </div>
