@@ -49,7 +49,7 @@
     }
     .brand { font-size: 22px; font-weight: 800; color: var(--cyber-blue); text-shadow: 0 0 10px var(--cyber-blue); letter-spacing: 2px; white-space: nowrap; }
     
-    .header-right { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; justify-content: flex-end; flex: 1; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; flex: 1; }
     
     .time-box { 
         background: rgba(0,0,0,0.5); border: 1px solid var(--cyber-blue); 
@@ -73,7 +73,6 @@
     /* --- LAYOUT GRID --- */
     .cockpit {
       flex: 1; display: grid;
-      /* Video | Data | Controls | Terminal */
       grid-template-rows: minmax(400px, auto) minmax(350px, auto) auto 150px; 
       grid-template-columns: 350px 1fr 350px;
       gap: 15px; padding: 15px; width: 100%; max-width: 1800px; margin: 0 auto;
@@ -127,7 +126,7 @@
         position: relative;
     }
     .tick-mark { position: absolute; width: 2px; height: 10px; background: #666; left: 50%; top: 0; transform-origin: 50% 100px; }
-    .tick-mark.major { height: 15px; width: 3px; background: white; }
+    .tick.major { height: 15px; width: 3px; background: white; }
     
     .needle {
         position: absolute; top: 30px; left: 50%;
@@ -252,7 +251,7 @@
     .btn-data:hover { background: var(--cyber-blue); color: black; }
 
     /* --- RESPONSIVE --- */
-    @media (min-width: 1025px) { .cockpit { grid-template-columns: 350px 1fr 350px; grid-template-rows: auto auto auto auto; } }
+    @media (min-width: 1025px) { .cockpit { grid-template-columns: 350px 1fr 350px; grid-template-rows: auto auto auto; } }
     @media (max-width: 1024px) { 
       .cockpit { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto auto; }
       .video-section { grid-column: 1 / -1; grid-row: 1; height: 350px; }
@@ -276,9 +275,6 @@
       .control-bar { height: 90px; }
       .btn { clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); font-size: 18px; }
       .nav-panel { height: auto; flex-direction: column; gap: 10px; } .nav-row { width: 100%; }
-      .header-right { justify-content: flex-end; gap: 5px; }
-      .maint-btn { padding: 4px 8px; font-size: 10px; }
-      .time-box { font-size: 11px; padding: 4px 6px; min-width: 70px; }
     }
 
     /* Modals */
@@ -307,7 +303,6 @@
     @keyframes flicker { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     @keyframes pulseRed { 50% { box-shadow: inset 0 0 40px rgba(255,0,0,0.3); } }
     @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes scanUnlock { 0% { height: 0%; top: 0; opacity: 0.5; } 50% { height: 100%; top: 0; opacity: 0.1; } 100% { height: 0%; top: 100%; opacity: 0; } }
   </style>
 
   <script type="module">
@@ -331,6 +326,7 @@
     let navMode = "meters"; let sliderValue = 0.5; let mapLoc = { lat: 0, lng: 0 };
     let userLoc = null;
     let currentSpeedDisplay = 0.0; let targetSpeed = 0.0;
+    // Chart Container
     let charts = { c1: null, c2: null, c3: null, c4: null };
     
     const SEMENYIH_LAT = 2.958196;
@@ -452,7 +448,7 @@
         navMode = document.getElementById('move-mode').value;
         const sl = document.getElementById('slider-cont');
         const slider = document.getElementById('dist-slider');
-        const valDisp = document.getElementById('n-val'); // CHANGED ID HERE
+        const valDisp = document.getElementById('n-val'); // FIXED ID
         
         if(navMode==="hold") { 
             sl.style.opacity=0.3; sl.style.pointerEvents="none"; valDisp.innerText="MANUAL"; 
@@ -586,7 +582,9 @@
                 </tr>`;
                 tbody.innerHTML += row;
             });
+            
             initCharts(data);
+            
         }, {onlyOnce:true});
     }
 
@@ -857,7 +855,7 @@
             <h2 style="color:var(--cyber-green);">MISSION DATA LOGS</h2>
             <button onclick="closeModal('dataModal')" class="close-btn" style="font-size:24px; border:none;">X</button>
         </div>
-        <div class="table-container">
+        <div class="table-wrapper">
             <table>
                 <thead>
                     <tr><th>TRIP</th><th>START LOC</th><th>START TIME</th><th>STOP LOC</th><th>STOP TIME</th><th>SPEED</th><th>VERT RMS</th><th>LAT RMS</th><th>COMFORT</th><th>DIST</th></tr>
