@@ -232,7 +232,7 @@
       clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
       text-transform: uppercase;
       display: flex; align-items: center; justify-content: center;
-      touch-action: none; /* PREVENT ZOOM/SCROLL ON TAP */
+      touch-action: none; /* CRITICAL FOR MOBILE */
     }
     .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); box-shadow: 0 0 15px rgba(5, 255, 161, 0.1); }
     .btn-fwd:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
@@ -292,7 +292,7 @@
     /* Table */
     .table-wrapper { overflow-x: auto; width: 100%; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; min-width: 800px; }
-    th, td { border: 1px solid #444; padding: 10px; text-align: center; white-space: nowrap; }
+    th, td { border: 1px solid #444; padding: 10px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     th { color: var(--cyber-blue); background: #080a10; text-transform: uppercase; font-weight: bold; position: sticky; top: 0; z-index: 5; }
     tr:nth-child(even) { background: rgba(255,255,255,0.02); }
     
@@ -452,7 +452,7 @@
         navMode = document.getElementById('move-mode').value;
         const sl = document.getElementById('slider-cont');
         const slider = document.getElementById('dist-slider');
-        const valDisp = document.getElementById('n-val'); // FIXED ID
+        const valDisp = document.getElementById('n-val'); 
         
         if(navMode==="hold") { 
             sl.style.opacity=0.3; sl.style.pointerEvents="none"; valDisp.innerText="MANUAL"; 
@@ -835,9 +835,9 @@
         <div id="cam-config-area"><input type="text" id="cam-url" placeholder="Paste Cloudflare URL..."><button onclick="connectCams()" style="width:100%; margin-top:5px; background:var(--cyber-blue); border:none; color:black; font-weight:bold; cursor:pointer;">CONNECT</button></div>
       </div>
       <div class="control-bar">
-        <button class="btn btn-fwd" onpointerdown="handlePress('FORWARD', event)" onpointerup="handleRelease(event)" onpointercancel="handleRelease(event)">FORWARD</button>
+        <button class="btn btn-fwd" onmousedown="handlePress('FORWARD', event)" onmouseup="handleRelease(event)" ontouchstart="handlePress('FORWARD', event)" ontouchend="handleRelease(event)" onmouseleave="handleRelease(event)" ontouchcancel="handleRelease(event)">FORWARD</button>
         <button class="btn btn-stop" onclick="sendCommand('STOP')">STOP</button>
-        <button class="btn btn-bwd" onpointerdown="handlePress('BACKWARD', event)" onpointerup="handleRelease(event)" onpointercancel="handleRelease(event)">BACKWARD</button>
+        <button class="btn btn-bwd" onmousedown="handlePress('BACKWARD', event)" onmouseup="handleRelease(event)" ontouchstart="handlePress('BACKWARD', event)" ontouchend="handleRelease(event)" onmouseleave="handleRelease(event)" ontouchcancel="handleRelease(event)">BACKWARD</button>
         <button class="btn btn-data" onclick="showData()">DATA</button>
       </div>
     </div>
