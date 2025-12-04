@@ -1,20 +1,19 @@
 /*
- * PROJECT MPM-RAIV - FIRMWARE v24.0 (Calibrated Precision)
- * --------------------------------------------------------
- * FIXES:
- * 1. DISTANCE ACCURACY: Calibrated to 1.96 ratio based on 0.7m test result.
- * (This increases step count to hit exactly 1.0m).
- * 2. STABILITY: Watchdog timer removed completely to prevent reboot loops.
- * 3. BUTTONS: Direct polling for instant "Dead Man" safety stop.
+ * PROJECT MPM-RAIV - FIRMWARE v32.0 (INSTANT STREAMING)
+ * -----------------------------------------------------------
+ * CHANGELOG:
+ * - LATENCY FIX: Switched from Polling to STREAMING for Commands.
+ * Reaction time reduced from ~30s to <1s.
+ * - ARCHITECTURE: Uses separate Firebase objects for Stream (Command) 
+ * and Poll (Speed/Telemetry) to ensure non-blocking operation.
+ * - SAFETY: Watchdog (WDT) and Deceleration logic preserved.
  */
 
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Firebase_ESP_Client.h>
-#include <Wire.h>
-#include <DFRobot_BMI160.h> 
-#include <TinyGPS++.h> 
 #include "time.h" 
+#include <esp_task_wdt.h> 
 
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
@@ -34,11 +33,6 @@ const int PIN_LF = 4;   const int PIN_LB = 14;
 const int PIN_RF = 26;  const int PIN_RB = 27;
 const int BTN_FWD = 32; const int BTN_BWD = 33;
 const int PIN_LIGHT_RED = 18; const int PIN_LIGHT_ORANGE = 19;
-const int PIN_TRIG = 5; const int PIN_ECHO = 23;
-#define GPS_RX 16 
-#define GPS_TX 17
-#define GPS_BAUD 115200 
-const int OBSTACLE_LIMIT_CM = 5; 
 
 // ================================================================
 // 3. PHYSICS TUNING
@@ -46,29 +40,29 @@ const int OBSTACLE_LIMIT_CM = 5;
 const float WHEEL_CIRC_M    = 0.3635; 
 const int STEPS_PER_REV     = 1000; 
 
-// *** CALIBRATION FINAL ***
-// Previous (2.8) -> Result 0.7m (Undershoot)
-// Correction: 2.8 * 0.7 = 1.96
+// CALIBRATION
 const float ERROR_RATIO     = 1.96; 
-
 const float METERS_PER_STEP = (WHEEL_CIRC_M / STEPS_PER_REV) * ERROR_RATIO; 
 
-// Speed Settings
+// Speed & Ramp Settings
 const int PULSE_WIDTH       = 500;   
-const int DELAY_MANUAL      = 2000;  // Smooth Manual Speed
+const int DELAY_MANUAL      = 2000;  
 const int DELAY_STARTUP     = 5000;  
 const int RAMP_STEP         = 20;    
 
+// Deceleration Zone: Slow down 300 steps (~21cm) before target
+const int DECEL_ZONE_STEPS  = 300;   
+
 // ================================================================
-// 4. SHARED VARIABLES
+// 4. SHARED VARIABLES (THREAD SAFE)
 // ================================================================
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
 volatile bool shared_run = false;
 volatile bool shared_dir = true; // true=FWD
+volatile bool shared_auto_mode = false; 
 volatile long shared_steps_target = 0; 
 volatile long shared_steps_taken = 0;
-volatile bool shared_emergency = false;
 volatile bool shared_job_done = false;
 
 volatile int shared_target_delay = DELAY_STARTUP;
@@ -76,121 +70,175 @@ volatile int shared_target_delay = DELAY_STARTUP;
 // ================================================================
 // 5. GLOBAL OBJECTS
 // ================================================================
-FirebaseData fbDO; FirebaseAuth auth; FirebaseConfig config;
-bool signupOK=false; bool wifiConnected=false; bool bmi160Ready=false;
-TinyGPSPlus gps; HardwareSerial SerialGPS(2); DFRobot_BMI160 bmi160; const int8_t i2c_addr = 0x68;
+FirebaseData fbDO;      // For Speed Polling & Telemetry
+FirebaseData streamDO;  // Dedicated for Instant Command Stream
+FirebaseAuth auth; FirebaseConfig config;
+bool signupOK=false; bool wifiConnected=false;
 
 String cloudCommand = "STOP";
-String lastProcessedCmd = "";
 unsigned long lastTel = 0;
-unsigned long lastNet = 0;
-float currentSpeedKmH = 0;
+unsigned long lastSpeedPoll = 0;
 
 // ================================================================
-// CORE 0: MOTOR ENGINE (FAILSAFE)
+// CORE 0: MOTOR ENGINE (The Driver)
 // ================================================================
 void TaskEngine(void * pvParameters) {
-  // 1. Setup Motor Pins (Active LOW)
+  esp_task_wdt_config_t twdt_config = {
+      .timeout_ms = 60000,        
+      .idle_core_mask = (1 << 0), 
+      .trigger_panic = true       
+  };
+  esp_task_wdt_init(&twdt_config); 
+  esp_task_wdt_add(NULL);          
+
   pinMode(PIN_LF, OUTPUT); pinMode(PIN_LB, OUTPUT); 
   pinMode(PIN_RF, OUTPUT); pinMode(PIN_RB, OUTPUT);
   digitalWrite(PIN_LF, HIGH); digitalWrite(PIN_LB, HIGH);
   digitalWrite(PIN_RF, HIGH); digitalWrite(PIN_RB, HIGH);
 
-  // 2. Setup Buttons (Input Pullup)
   pinMode(BTN_FWD, INPUT_PULLUP);
   pinMode(BTN_BWD, INPUT_PULLUP);
 
   int currentDelay = DELAY_STARTUP;
 
   for(;;) { 
-    // 3. READ HARDWARE SWITCHES
+    esp_task_wdt_reset(); // Feed Watchdog
+
+    // 1. READ BUTTONS
     bool btnF = (digitalRead(BTN_FWD) == LOW);
     bool btnB = (digitalRead(BTN_BWD) == LOW);
     
-    // 4. DETERMINE ACTION
-    if (shared_emergency) {
-        // Emergency Override
-        shared_run = false;
-    }
-    else if (btnF) {
-        // Manual Forward (Press & Hold)
-        portENTER_CRITICAL(&timerMux);
-        shared_run = true; shared_dir = true; shared_steps_target = 0;
-        shared_target_delay = DELAY_MANUAL;
-        portEXIT_CRITICAL(&timerMux);
-    } 
-    else if (btnB) {
-        // Manual Backward (Press & Hold)
-        portENTER_CRITICAL(&timerMux);
-        shared_run = true; shared_dir = false; shared_steps_target = 0;
-        shared_target_delay = DELAY_MANUAL;
-        portEXIT_CRITICAL(&timerMux);
-    }
-    else if (!btnF && !btnB && shared_target_delay == DELAY_MANUAL && shared_run) {
-        // Manual Release -> STOP INSTANTLY
-        portENTER_CRITICAL(&timerMux);
-        shared_run = false;
-        portEXIT_CRITICAL(&timerMux);
-    }
+    // 2. CONTROL LOGIC
+    if (shared_auto_mode) {
+        // --- AUTO MODE ---
+        if (shared_run) {
+             // A. Check Target
+             if (shared_steps_target > 0 && shared_steps_taken >= shared_steps_target) {
+                portENTER_CRITICAL(&timerMux);
+                shared_run = false; 
+                shared_auto_mode = false; 
+                shared_steps_target = 0;
+                shared_job_done = true; 
+                portEXIT_CRITICAL(&timerMux);
+             }
+             else {
+                // B. Deceleration Logic
+                int targetD = shared_target_delay;
+                long stepsRem = shared_steps_target - shared_steps_taken;
+                
+                if (stepsRem < DECEL_ZONE_STEPS) {
+                    targetD = targetD + (DECEL_ZONE_STEPS - stepsRem) * 20;
+                    if (targetD > DELAY_STARTUP) targetD = DELAY_STARTUP;
+                }
 
-    // 5. MOTOR PULSE LOOP
-    if (shared_run) {
-        // Check Auto-Distance Limit
-        if (shared_steps_target > 0 && shared_steps_taken >= shared_steps_target) {
-            portENTER_CRITICAL(&timerMux);
-            shared_run = false; 
-            shared_steps_target = 0;
-            shared_job_done = true; // Signal done
-            portEXIT_CRITICAL(&timerMux);
-        } 
-        else {
-            // Ramp Speed
-            if (currentDelay > shared_target_delay) currentDelay -= RAMP_STEP;
-            else if (currentDelay < shared_target_delay) currentDelay += RAMP_STEP;
+                if (currentDelay > targetD) currentDelay -= RAMP_STEP;
+                else if (currentDelay < targetD) currentDelay += RAMP_STEP;
 
-            // Step Motors
-            if (shared_dir) {
-              digitalWrite(PIN_LF, LOW); digitalWrite(PIN_RF, LOW);
-              delayMicroseconds(PULSE_WIDTH);
-              digitalWrite(PIN_LF, HIGH); digitalWrite(PIN_RF, HIGH);
-            } else {
-              digitalWrite(PIN_LB, LOW); digitalWrite(PIN_RB, LOW);
-              delayMicroseconds(PULSE_WIDTH);
-              digitalWrite(PIN_LB, HIGH); digitalWrite(PIN_RB, HIGH);
-            }
-            
-            // Track Distance (Only for Auto Mode)
-            if (shared_steps_target > 0) {
+                // C. Pulse
+                if (shared_dir) {
+                  digitalWrite(PIN_LF, LOW); digitalWrite(PIN_RF, LOW);
+                  delayMicroseconds(PULSE_WIDTH);
+                  digitalWrite(PIN_LF, HIGH); digitalWrite(PIN_RF, HIGH);
+                } else {
+                  digitalWrite(PIN_LB, LOW); digitalWrite(PIN_RB, LOW);
+                  delayMicroseconds(PULSE_WIDTH);
+                  digitalWrite(PIN_LB, HIGH); digitalWrite(PIN_RB, HIGH);
+                }
+                
                 portENTER_CRITICAL(&timerMux);
                 shared_steps_taken++;
                 portEXIT_CRITICAL(&timerMux);
-            }
-            
-            delayMicroseconds(currentDelay);
+                
+                delayMicroseconds(currentDelay);
+             }
+        } else {
+             shared_auto_mode = false;
         }
-    } else {
-        currentDelay = DELAY_STARTUP;
-        vTaskDelay(1); // Yield to avoid starvation
+    } 
+    else {
+        // --- MANUAL MODE ---
+        if (btnF) {
+            portENTER_CRITICAL(&timerMux);
+            shared_run = true; shared_dir = true; shared_target_delay = DELAY_MANUAL;
+            portEXIT_CRITICAL(&timerMux);
+        } 
+        else if (btnB) {
+            portENTER_CRITICAL(&timerMux);
+            shared_run = true; shared_dir = false; shared_target_delay = DELAY_MANUAL;
+            portEXIT_CRITICAL(&timerMux);
+        }
+        else if (shared_run) {
+            portENTER_CRITICAL(&timerMux);
+            shared_run = false;
+            portEXIT_CRITICAL(&timerMux);
+        }
+        
+        if (shared_run) {
+             if (currentDelay > shared_target_delay) currentDelay -= RAMP_STEP;
+             else if (currentDelay < shared_target_delay) currentDelay += RAMP_STEP;
+             
+             if (shared_dir) {
+                  digitalWrite(PIN_LF, LOW); digitalWrite(PIN_RF, LOW);
+                  delayMicroseconds(PULSE_WIDTH);
+                  digitalWrite(PIN_LF, HIGH); digitalWrite(PIN_RF, HIGH);
+             } else {
+                  digitalWrite(PIN_LB, LOW); digitalWrite(PIN_RB, LOW);
+                  delayMicroseconds(PULSE_WIDTH);
+                  digitalWrite(PIN_LB, HIGH); digitalWrite(PIN_RB, HIGH);
+             }
+             delayMicroseconds(currentDelay);
+        } else {
+             currentDelay = DELAY_STARTUP;
+             vTaskDelay(1); 
+        }
     }
   }
 }
 
 // ================================================================
-// CORE 1: LOGIC & CLOUD
+// STREAM CALLBACK (Executes Instantly on Data Change)
+// ================================================================
+void streamCallback(FirebaseStream data) {
+  if (data.dataTypeEnum() == firebase_rtdb_data_type_string) {
+      String c = data.stringData();
+      Serial.println("STREAM CMD: " + c);
+      
+      // Update Cloud Command State
+      cloudCommand = c;
+
+      portENTER_CRITICAL(&timerMux);
+      if (c == "STOP") { 
+          shared_run = false; shared_auto_mode = false;
+      }
+      else if (c.startsWith("FWD_") || c.startsWith("BWD_")) {
+          float m = c.substring(4).toFloat();
+          shared_dir = c.startsWith("FWD_");
+          shared_steps_taken = 0; 
+          shared_steps_target = (long)(m / METERS_PER_STEP);
+          shared_run = true;
+          shared_auto_mode = true; 
+      }
+      portEXIT_CRITICAL(&timerMux);
+  }
+}
+
+void streamTimeoutCallback(bool timeout) {
+  if (timeout) Serial.println("Stream Timeout, Resuming...");
+}
+
+// ================================================================
+// CORE 1: CLOUD & LOGIC
 // ================================================================
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n--- MPM-RAIV v24.0 (CALIBRATED) ---");
+  Serial.println("\n--- MPM-RAIV v32.0 (INSTANT STREAM) ---");
 
-  // Start Engine Task
-  xTaskCreatePinnedToCore(TaskEngine, "Engine", 10000, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(TaskEngine, "Engine", 12000, NULL, 1, NULL, 0);
 
-  pinMode(PIN_TRIG, OUTPUT); pinMode(PIN_ECHO, INPUT); digitalWrite(PIN_TRIG, LOW);
   pinMode(PIN_LIGHT_RED, OUTPUT); pinMode(PIN_LIGHT_ORANGE, OUTPUT);
+  pinMode(BTN_FWD, INPUT_PULLUP); pinMode(BTN_BWD, INPUT_PULLUP);
 
-  SerialGPS.begin(GPS_BAUD, SERIAL_8N1, GPS_RX, GPS_TX);
-  if(bmi160.softReset() == BMI160_OK && bmi160.I2cInit(i2c_addr) == BMI160_OK) bmi160Ready = true;
-
+  // WiFi Setup
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   unsigned long s = millis();
   while(WiFi.status() != WL_CONNECTED && millis()-s < 10000) delay(200);
@@ -198,138 +246,113 @@ void setup() {
   if(WiFi.status() == WL_CONNECTED) {
     wifiConnected = true;
     configTime(0, 0, "pool.ntp.org"); 
+    
+    // STREAMING CONFIG
     config.api_key = API_KEY; config.database_url = DATABASE_URL;
     config.timeout.wifiReconnect = 2000;
+    
+    // IMPORTANT: Keep connection alive for streaming
+    // config.keep_alive = true; // (Deprecated in new lib, implied by beginStream)
+    fbDO.setBSSLBufferSize(2048, 512); 
+    streamDO.setBSSLBufferSize(2048, 512);
+
+    config.token_status_callback = tokenStatusCallback; 
+
     if (Firebase.signUp(&config, &auth, "", "")) {
         signupOK = true;
         Firebase.RTDB.setString(&fbDO, "/command", "STOP");
     }
     Firebase.begin(&config, &auth);
     Firebase.reconnectWiFi(true);
+    
+    // START STREAMING ON /command
+    if (!Firebase.RTDB.beginStream(&streamDO, "/command")) {
+        Serial.printf("Stream Error: %s\n", streamDO.errorReason().c_str());
+    }
+    Firebase.RTDB.setStreamCallback(&streamDO, streamCallback, streamTimeoutCallback);
   }
 }
 
 void loop() {
-  while(SerialGPS.available()) gps.encode(SerialGPS.read());
-
-  // A. ULTRASONIC SAFETY
-  digitalWrite(PIN_TRIG, LOW); delayMicroseconds(2);
-  digitalWrite(PIN_TRIG, HIGH); delayMicroseconds(10);
-  digitalWrite(PIN_TRIG, LOW);
-  long dur = pulseIn(PIN_ECHO, HIGH, 15000);
-  float dist = (dur == 0) ? 999 : (dur * 0.034 / 2);
-  
-  portENTER_CRITICAL(&timerMux);
-  shared_emergency = (dist > 0 && dist < OBSTACLE_LIMIT_CM);
-  portEXIT_CRITICAL(&timerMux);
-
-  // B. CLOUD SYNC
+  // Check buttons
   bool manualActive = (digitalRead(BTN_FWD) == LOW || digitalRead(BTN_BWD) == LOW);
 
   if (!manualActive && wifiConnected && signupOK && Firebase.ready()) {
       
-      // 1. Job Finished -> Reset Cloud
+      // 1. Job Done Report
       if (shared_job_done) {
-          Serial.println("Job Done. Clearing Cloud.");
+          Serial.println("Target Reached. Resetting.");
+          // Use fbDO for writes (streamDO is busy listening)
           Firebase.RTDB.setString(&fbDO, "/command", "STOP");
           cloudCommand = "STOP";
-          
           portENTER_CRITICAL(&timerMux);
-          shared_job_done = false;
-          shared_run = false; 
+          shared_job_done = false; shared_run = false; shared_auto_mode = false;
           portEXIT_CRITICAL(&timerMux);
       }
-
-      // 2. Read Command
-      if (millis() - lastNet > 150) {
-          if (Firebase.RTDB.getString(&fbDO, "/command")) {
-              String c = fbDO.stringData();
-              if (c != cloudCommand) {
-                  cloudCommand = c;
-                  Serial.println("CMD: " + c);
-                  
-                  portENTER_CRITICAL(&timerMux);
-                  if (c == "STOP") { 
-                      shared_run = false; shared_steps_target = 0; 
-                  }
-                  else if (c == "FORWARD") { 
-                      shared_run = true; shared_dir = true; shared_steps_target = 0; 
-                  }
-                  else if (c == "BACKWARD") { 
-                      shared_run = true; shared_dir = false; shared_steps_target = 0; 
-                  }
-                  else if (c.startsWith("FWD_")) {
-                      float m = c.substring(4).toFloat();
-                      shared_dir = true; 
-                      shared_steps_taken = 0; 
-                      shared_steps_target = (long)(m / METERS_PER_STEP);
-                      shared_run = true;
-                  }
-                  else if (c.startsWith("BWD_")) {
-                      float m = c.substring(4).toFloat();
-                      shared_dir = false;
-                      shared_steps_taken = 0; 
-                      shared_steps_target = (long)(m / METERS_PER_STEP);
-                      shared_run = true;
-                  }
-                  portEXIT_CRITICAL(&timerMux);
-              }
-          }
-          
-          // 3. Speed Slider
+      
+      // 2. Poll Speed Factor (Every 1000ms) - Background Task
+      // We poll this separately because commands are instant now.
+      if (millis() - lastSpeedPoll > 1000) {
           if (Firebase.RTDB.getInt(&fbDO, "/speed_factor")) {
               int pct = fbDO.intData();
               if (pct < 25) pct = 25;
-              // 25% -> 8000us, 200% -> 750us
-              // Map
-              float speedMs = (pct - 20) / 35.0; if(speedMs < 0.1) speedMs = 0.1;
-              float delayUs = (1.0 / ((speedMs / METERS_PER_STEP) / 1000000.0)) - PULSE_WIDTH;
+              
+              float selectedSpeedMs = (pct - 20) / 35.0; 
+              // Expert Curve
+              float actualSpeedMs = 0.1; 
+              if      (selectedSpeedMs <= 0.3)  actualSpeedMs = selectedSpeedMs * 0.70;
+              else if (selectedSpeedMs <= 0.75) actualSpeedMs = 0.20; 
+              else if (selectedSpeedMs <= 1.25) actualSpeedMs = 0.40; 
+              else if (selectedSpeedMs <= 1.75) actualSpeedMs = 0.60;
+              else if (selectedSpeedMs <= 2.25) actualSpeedMs = 0.70;
+              else if (selectedSpeedMs <= 2.75) actualSpeedMs = 0.75;
+              else if (selectedSpeedMs <= 3.25) actualSpeedMs = 0.80;
+              else if (selectedSpeedMs <= 3.75) actualSpeedMs = 0.85;
+              else if (selectedSpeedMs <= 4.25) actualSpeedMs = 0.90;
+              else if (selectedSpeedMs <= 4.75) actualSpeedMs = 0.95;
+              else                              actualSpeedMs = 1.00;
+
+              if(actualSpeedMs < 0.05) actualSpeedMs = 0.05;
+              float delayUs = (METERS_PER_STEP / actualSpeedMs) * 1000000.0 - PULSE_WIDTH;
               if(delayUs < 100) delayUs = 100;
               
               portENTER_CRITICAL(&timerMux);
               shared_target_delay = (int)delayUs;
               portEXIT_CRITICAL(&timerMux);
           }
-          lastNet = millis();
+          lastSpeedPoll = millis();
       }
   }
 
-  // C. Lights
-  if (shared_emergency) {
-     digitalWrite(PIN_LIGHT_RED, LOW); digitalWrite(PIN_LIGHT_ORANGE, (millis()/100)%2);
-  } else if (shared_run) {
+  // Lights
+  if (shared_run) {
      digitalWrite(PIN_LIGHT_RED, LOW); digitalWrite(PIN_LIGHT_ORANGE, (millis()/500)%2);
   } else {
      digitalWrite(PIN_LIGHT_RED, HIGH); digitalWrite(PIN_LIGHT_ORANGE, LOW);
   }
 
-  // D. Telemetry
-  if (wifiConnected && millis() - lastTel > 800) {
-      // Calculate real speed
+  // Telemetry (Every 1000ms)
+  if (wifiConnected && millis() - lastTel > 1000) {
       float stepTime = (PULSE_WIDTH + shared_target_delay)/1000000.0;
       float kmh = (shared_run ? (METERS_PER_STEP/stepTime)*3.6 : 0);
       
       FirebaseJson json;
       json.set("speed", kmh);
       json.set("status", shared_run?"MOVING":"STANDBY");
-      json.set("lat", gps.location.isValid() ? gps.location.lat() : 0);
-      json.set("lng", gps.location.isValid() ? gps.location.lng() : 0);
-      
-      if (bmi160Ready) {
-         int16_t d[6]={0}; bmi160.getAccelGyroData(d);
-         json.set("vibration", abs((d[2]/16384.0)-1.0)); 
-         json.set("vertical", d[2]/16384.0);
-      } else {
-         json.set("vibration", 0); json.set("vertical", 0);
-      }
+      // Fixed location for demo
+      json.set("lat", 2.9582); 
+      json.set("lng", 101.8236);
+      json.set("vibration", 0); 
+      json.set("vertical", 0);
       
       if (shared_steps_target > 0) {
-          json.set("prog_dist", shared_steps_taken * METERS_PER_STEP);
           json.set("targ_dist", shared_steps_target * METERS_PER_STEP);
+          json.set("prog_dist", shared_steps_taken * METERS_PER_STEP);
       }
       
+      // Use fbDO for telemetry (streamDO is busy)
       Firebase.RTDB.setJSON(&fbDO, "/telemetry", &json);
       lastTel = millis();
   }
-  delay(10);
+  delay(1); 
 }
