@@ -73,6 +73,7 @@
     /* --- LAYOUT GRID --- */
     .cockpit {
       flex: 1; display: grid;
+      /* Video | Data | Controls | Terminal */
       grid-template-rows: minmax(400px, auto) minmax(350px, auto) auto 150px; 
       grid-template-columns: 350px 1fr 350px;
       gap: 15px; padding: 15px; width: 100%; max-width: 1800px; margin: 0 auto;
@@ -93,7 +94,7 @@
       text-transform: uppercase; font-weight: 800; flex-shrink: 0;
     }
 
-    /* --- VIDEO --- */
+    /* --- VIDEO (2x2 GRID) --- */
     .video-section { grid-column: 1 / -1; grid-row: 1 / 2; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; min-height: 400px; }
     .cam-box { background: #000; position: relative; display: flex; justify-content: center; align-items: center; border: 1px solid #333; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8); transform: translateZ(0); }
     .stream-img { width: 100%; height: 100%; object-fit: contain; display: none; will-change: transform; }
@@ -231,6 +232,7 @@
       clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
       text-transform: uppercase;
       display: flex; align-items: center; justify-content: center;
+      touch-action: none; /* PREVENT ZOOM/SCROLL ON TAP */
     }
     .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); box-shadow: 0 0 15px rgba(5, 255, 161, 0.1); }
     .btn-fwd:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
@@ -329,6 +331,7 @@
     let navMode = "meters"; let sliderValue = 0.5; let mapLoc = { lat: 0, lng: 0 };
     let userLoc = null;
     let currentSpeedDisplay = 0.0; let targetSpeed = 0.0;
+    // Chart Container
     let charts = { c1: null, c2: null, c3: null, c4: null };
     
     const SEMENYIH_LAT = 2.958196;
@@ -450,7 +453,7 @@
         navMode = document.getElementById('move-mode').value;
         const sl = document.getElementById('slider-cont');
         const slider = document.getElementById('dist-slider');
-        const valDisp = document.getElementById('n-val'); // FIXED ID
+        const valDisp = document.getElementById('n-val'); 
         
         if(navMode==="hold") { 
             sl.style.opacity=0.3; sl.style.pointerEvents="none"; valDisp.innerText="MANUAL"; 
@@ -463,28 +466,28 @@
     window.updateDist = (v) => { sliderValue=v; document.getElementById('n-val').innerText=v+(navMode==="meters"?" m":" km"); }
 
     window.handlePress = (dir, e) => {
-        // Use onpointerdown for responsiveness
+        if(e && e.cancelable) e.preventDefault(); 
+
         if (navMode === "hold") {
-             if(e && e.cancelable) e.preventDefault();
-             sendCommand(dir);
+            if(e.type === "pointerdown") sendCommand(dir);
         } else {
-             // Distance mode: Click once to send command
-             // Check event type to avoid double firing (mousedown AND touchstart)
-             if(e.type === "pointerdown" || e.type === "click") { // Using click or pointerdown
+            // Distance mode: Click once to send command
+            if(e.type === "pointerdown") {
                 let d = (navMode === "meters") ? sliderValue : sliderValue*1000;
                 let prefix = (dir==="FORWARD"?"FWD_":"BWD_");
-                sendCommand(prefix + d);
+                // UNIQUE ID to force new command every time
+                let uniqueCmd = prefix + d + "_" + Date.now();
+                sendCommand(uniqueCmd);
                 logEvent(`[NAV] AUTO: ${d}m`);
-             }
+            }
         }
     }
 
     window.handleRelease = (e) => { 
+        if(e && e.cancelable) e.preventDefault();
         if (navMode === "hold") {
-             if(e && e.cancelable) e.preventDefault();
              sendCommand('STOP'); 
         }
-        // Do nothing for distance mode on release
     }
     window.sendCommand = (c) => { set(ref(db, 'command'), c); logEvent(`CMD: ${c}`); }
 
