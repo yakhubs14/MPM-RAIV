@@ -17,7 +17,6 @@
       --cyber-red: #ff003c;
       --cyber-green: #05ffa1;
       --cyber-yellow: #fcee0a;
-      --cyber-orange: #ff5e00;
       --bg-dark: #020204;
       --panel-bg: rgba(8, 12, 16, 0.95);
       --glass-border: 1px solid rgba(0, 240, 255, 0.3);
@@ -43,7 +42,7 @@
 
     /* --- HEADER --- */
     header {
-      height: auto; min-height: 60px; background: #0a0f14; border-bottom: 2px solid var(--cyber-blue);
+      height: auto; min-height: 65px; background: #0a0f14; border-bottom: 2px solid var(--cyber-blue);
       display: flex; justify-content: space-between; align-items: center; padding: 10px 20px;
       box-shadow: 0 0 20px rgba(0, 240, 255, 0.2); z-index: 100; flex-shrink: 0; flex-wrap: wrap; gap: 15px;
     }
@@ -53,15 +52,15 @@
     
     .time-box { 
         background: rgba(0,0,0,0.5); border: 1px solid var(--cyber-blue); 
-        color: var(--cyber-blue); padding: 6px 12px; font-family: 'Share Tech Mono'; 
-        font-weight: bold; min-width: 110px; text-align: center; font-size: 14px;
+        color: var(--cyber-blue); padding: 5px 10px; font-family: 'Share Tech Mono'; 
+        font-weight: bold; min-width: 110px; text-align: center; font-size: 12px;
     }
 
     .led-panel { display: flex; gap: 12px; align-items: center; background: #000; padding: 6px 15px; border: 1px solid #333; border-radius: 20px; }
-    .led { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #555; transition: 0.2s; }
-    .led-label { font-size: 11px; color: #888; margin-left: 5px; font-weight: bold; display: inline-block; }
-    .led-red.active { background: var(--cyber-red); box-shadow: 0 0 15px var(--cyber-red); border-color: white; }
-    .led-orange.active { background: var(--cyber-orange); box-shadow: 0 0 15px var(--cyber-orange); border-color: white; animation: blinkFast 0.2s infinite alternate; }
+    .led { width: 10px; height: 10px; border-radius: 50%; border: 2px solid #555; transition: 0.2s; }
+    .led-label { font-size: 10px; color: #888; margin-left: 5px; font-weight: bold; display: inline-block; }
+    .led-red.active { background: var(--cyber-red); box-shadow: 0 0 10px var(--cyber-red); border-color: white; }
+    .led-orange.active { background: var(--cyber-orange); box-shadow: 0 0 10px var(--cyber-orange); border-color: white; animation: blinkFast 0.2s infinite alternate; }
     
     .maint-btn { 
         background: rgba(252, 238, 10, 0.1); border: 1px solid var(--cyber-yellow); color: var(--cyber-yellow);
@@ -73,7 +72,6 @@
     /* --- LAYOUT GRID --- */
     .cockpit {
       flex: 1; display: grid;
-      /* Video | Data | Controls | Terminal */
       grid-template-rows: minmax(400px, auto) minmax(350px, auto) auto 150px; 
       grid-template-columns: 350px 1fr 350px;
       gap: 15px; padding: 15px; width: 100%; max-width: 1800px; margin: 0 auto;
@@ -83,7 +81,7 @@
     .panel {
       background: var(--panel-bg); border: var(--glass-border); position: relative;
       clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
-      box-shadow: inset 0 0 40px rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.9); backdrop-filter: blur(10px);
       display: flex; flex-direction: column; transition: box-shadow 0.3s;
     }
     .panel:hover { box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.1); border-color: rgba(0, 240, 255, 0.6); }
@@ -94,7 +92,7 @@
       text-transform: uppercase; font-weight: 800; flex-shrink: 0;
     }
 
-    /* --- VIDEO (2x2 GRID) --- */
+    /* --- VIDEO --- */
     .video-section { grid-column: 1 / -1; grid-row: 1 / 2; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; min-height: 400px; }
     .cam-box { background: #000; position: relative; display: flex; justify-content: center; align-items: center; border: 1px solid #333; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8); transform: translateZ(0); }
     .stream-img { width: 100%; height: 100%; object-fit: contain; display: none; will-change: transform; }
@@ -113,44 +111,21 @@
       cursor: pointer; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
       box-shadow: 0 0 10px var(--cyber-green); transition: 0.2s;
     }
-    .btn-dir:hover { transform: scale(1.05); filter: brightness(1.2); }
 
     /* --- SPEEDOMETER --- */
     .speed-panel { grid-column: 2 / 3; grid-row: 2 / 3; align-items: center; justify-content: flex-start; border-top: 4px solid var(--cyber-blue); padding-bottom: 20px; }
     .gauge-container { position: relative; width: 200px; height: 200px; margin-top: 10px; display:flex; align-items:center; justify-content:center; }
-    
-    /* Gauge & Needle */
-    .gauge-wrapper {
-        width: 200px; height: 200px; border-radius: 50%; border: 5px solid #333;
-        background: radial-gradient(circle at center, #111 0%, #050505 70%);
-        box-shadow: 0 0 30px black, inset 0 0 40px black;
-        position: relative;
-    }
-    .tick-mark { position: absolute; width: 2px; height: 10px; background: #666; left: 50%; top: 0; transform-origin: 50% 100px; }
-    .tick.major { height: 15px; width: 3px; background: white; }
-    
-    .needle {
-        position: absolute; top: 30px; left: 50%;
-        width: 6px; height: 80px;
-        background: var(--cyber-red);
-        transform-origin: bottom center;
-        transform: translateX(-50%) rotate(-135deg);
-        transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        z-index: 5; border-radius: 4px 4px 0 0;
-        box-shadow: 0 0 10px var(--cyber-red);
-    }
-    .needle-cap {
-        position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
-        background: #333; border: 2px solid #555; border-radius: 50%;
-        transform: translate(-50%, -50%); z-index: 6;
-    }
+    svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    circle { fill: none; stroke-width: 12; stroke-linecap: round; }
+    .bg-ring { stroke: #222; }
+    .fg-ring { stroke: var(--cyber-blue); stroke-dasharray: 565; stroke-dashoffset: 565; transition: stroke-dashoffset 0.5s ease-out; filter: drop-shadow(0 0 15px var(--cyber-blue)); }
     
     .speed-readout { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 10; }
     .big-num { font-size: 52px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 0 10px rgba(0,240,255,0.6); font-family: 'Share Tech Mono'; }
     .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; font-weight:bold; }
 
     /* SPEED SELECTOR */
-    #speed-select-box { display: none; width: 80%; margin-top: 20px; animation: slideDown 0.5s ease-out; }
+    #speed-select-box { display: none; width: 85%; margin-top: 20px; animation: slideDown 0.5s ease-out; }
     .spd-dropdown { width: 100%; background: #050505; color: var(--cyber-yellow); border: 1px solid var(--cyber-yellow); padding: 10px; font-family: 'Oxanium'; font-size: 16px; outline: none; text-align: center; appearance: none; cursor: pointer; box-shadow: 0 0 10px rgba(252, 238, 10, 0.2); }
     .spd-dropdown:hover { background: #111; }
     .spd-title { text-align:center; color: #666; font-size: 10px; letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase; }
@@ -165,17 +140,11 @@
     .info-btn { background: none; border: 1px solid #666; color: #aaa; width: 16px; height: 16px; border-radius: 50%; font-size: 10px; cursor: pointer; margin-left: 5px; display: inline-flex; align-items: center; justify-content: center; }
     
     /* TERMINAL */
-    .terminal-panel {
-        grid-column: 1 / -1; grid-row: 4 / 5;
-        background: #000; border: 1px solid var(--cyber-green); padding: 10px;
-        font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--cyber-green);
-        overflow-y: auto; box-shadow: inset 0 0 20px rgba(5, 255, 161, 0.1); min-height: 120px;
-    }
+    .terminal-panel { grid-column: 1 / -1; grid-row: 4 / 5; background: #000; border: 1px solid var(--cyber-green); padding: 10px; font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--cyber-green); overflow-y: auto; box-shadow: inset 0 0 20px rgba(5, 255, 161, 0.1); min-height: 120px; }
 
     /* --- CONTROLS --- */
     .control-container { grid-column: 1 / -1; grid-row: 3 / 4; display: flex; gap: 15px; padding-bottom: 20px; }
     
-    /* LOCKED OVERLAY */
     #locked-panel {
         grid-column: 1 / -1; grid-row: 3 / 4;
         display: flex; justify-content: center; align-items: center; flex-direction: column;
@@ -183,103 +152,62 @@
         border: 2px dashed var(--cyber-red); padding: 40px; cursor: pointer; text-align: center;
         transition: 0.3s; animation: pulseRed 3s infinite;
     }
-    #locked-panel:hover { background: rgba(255, 0, 60, 0.2); letter-spacing: 2px; }
-    .lock-icon { font-size: 40px; margin-bottom: 10px; display: block; text-shadow: 0 0 20px var(--cyber-red); }
-    .lock-text { font-size: 24px; font-weight: 800; color: var(--cyber-red); text-shadow: 0 0 10px var(--cyber-red); }
-
+    .lock-text { font-size: 20px; font-weight: 800; color: var(--cyber-red); text-shadow: 0 0 10px var(--cyber-red); margin-top: 10px; }
     #control-container { display: none; } 
 
-    /* NAV SETTINGS (Left) */
-    .nav-panel {
-      flex: 1.2;
-      background: rgba(0,0,0,0.8);
-      border: 1px solid var(--cyber-blue);
-      padding: 15px;
-      display: flex; flex-direction: column; justify-content: space-between;
-      clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 20px);
-    }
+    .nav-panel { flex: 1.2; background: rgba(0,0,0,0.8); border: 1px solid var(--cyber-blue); padding: 15px; display: flex; flex-direction: column; justify-content: center; clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 20px); transition: 0.3s; }
     .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; font-size: 12px; }
-    select {
-      background: #050505; color: white; border: 1px solid var(--cyber-blue);
-      padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none; text-transform: uppercase;
-    }
-
-    /* Expandable Cam Link */
+    select { background: #050505; color: white; border: 1px solid var(--cyber-blue); padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none; text-transform: uppercase; }
+    
     #cam-config-area { display: none; margin-top: 5px; animation: slideDown 0.3s ease; }
-    input[type=text] {
-      background: #111; color: var(--cyber-red); border: 1px solid var(--cyber-red);
-      padding: 5px; font-family: 'Oxanium'; font-size: 12px; width: 100%; outline: none;
-    }
-    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* SLIDER STYLING */
+    input[type=text] { background: #111; color: var(--cyber-red); border: 1px solid var(--cyber-red); padding: 5px; font-family: 'Oxanium'; font-size: 12px; width: 100%; outline: none; }
+    
+    /* SLIDER */
     .slider-container { width: 100%; display: flex; align-items: center; gap: 10px; margin-top: 10px; transition: opacity 0.3s; }
     input[type=range] { flex: 1; -webkit-appearance: none; height: 10px; background: #222; border-radius: 5px; outline: none; border: 1px solid #444; }
     input[type=range]::-webkit-slider-thumb { 
-      -webkit-appearance: none; width: 24px; height: 24px; 
-      background: var(--cyber-blue); cursor: pointer; border-radius: 50%; 
+      -webkit-appearance: none; width: 24px; height: 24px; background: var(--cyber-blue); cursor: pointer; border-radius: 50%; 
       box-shadow: 0 0 15px var(--cyber-blue); border: 2px solid white;
     }
     .slider-val { width: 80px; text-align: right; color: var(--cyber-blue); font-weight: bold; font-size: 18px; }
 
-    /* BUTTONS (Right) */
+    /* BUTTONS */
     .control-bar { flex: 2; display: flex; gap: 10px; }
     .btn {
-      flex: 1; border: none; outline: none;
-      font-family: 'Oxanium'; font-size: 22px; font-weight: 800; letter-spacing: 2px;
-      cursor: pointer; position: relative; overflow: hidden;
-      transition: all 0.15s;
-      clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
-      text-transform: uppercase;
-      display: flex; align-items: center; justify-content: center;
-      touch-action: none; /* CRITICAL FOR MOBILE */
+      flex: 1; border: none; font-family: 'Oxanium'; font-weight: 800; letter-spacing: 1px; cursor: pointer; clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px); font-size: 20px; transition: 0.1s; display: flex; align-items: center; justify-content: center;
     }
-    .btn-fwd { background: rgba(5, 255, 161, 0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); box-shadow: 0 0 15px rgba(5, 255, 161, 0.1); }
-    .btn-fwd:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-green); transform: translateY(2px); }
+    .btn-fwd { background: rgba(5,255,161,0.15); color: var(--cyber-green); border: 2px solid var(--cyber-green); }
+    .btn-fwd:active { background: white; color: black; box-shadow: 0 0 40px var(--cyber-green); }
+    .btn-stop { flex: 0.6; background: rgba(255,0,60,0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); }
+    .btn-stop:active { background: white; color: black; box-shadow: 0 0 40px var(--cyber-red); }
+    .btn-bwd { background: rgba(252,238,10,0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); }
+    .btn-bwd:active { background: white; color: black; box-shadow: 0 0 40px var(--cyber-yellow); }
+    .btn-config { background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s; font-weight: bold; }
+    .btn-data { flex: 0.4; background: rgba(0,240,255,0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
 
-    .btn-stop { flex: 0.6; background: rgba(255, 0, 60, 0.15); color: var(--cyber-red); border: 2px solid var(--cyber-red); box-shadow: 0 0 15px rgba(255, 0, 60, 0.1); }
-    .btn-stop:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-red); transform: translateY(2px); }
-
-    .btn-bwd { background: rgba(252, 238, 10, 0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); box-shadow: 0 0 15px rgba(252, 238, 10, 0.1); }
-    .btn-bwd:active { background: white; color: black; box-shadow: 0 0 30px var(--cyber-yellow); transform: translateY(2px); }
-
-    .btn-config { 
-        background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); 
-        font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s; font-weight: bold;
-    }
-    .btn-config:hover { background: var(--cyber-red); color: white; }
-
-    .btn-data { flex: 0.4; background: rgba(0, 240, 255, 0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
-    .btn-data:hover { background: var(--cyber-blue); color: black; }
-
-    /* --- RESPONSIVE --- */
-    @media (min-width: 1025px) { .cockpit { grid-template-columns: 350px 1fr 350px; grid-template-rows: auto auto auto; } }
+    /* RESPONSIVE */
+    @media (min-width: 1025px) { .cockpit { grid-template-columns: 340px 1fr 340px; grid-template-rows: auto auto auto; } }
     @media (max-width: 1024px) { 
-      .cockpit { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto auto; }
-      .video-section { grid-column: 1 / -1; grid-row: 1; height: 350px; }
-      .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 280px; }
-      .data-panel { grid-column: 2 / 3; grid-row: 2; height: 280px; }
-      .map-panel { grid-column: 1 / -1; grid-row: 3; height: 300px; }
-      #locked-panel, #control-container { grid-column: 1 / -1; grid-row: 4; flex-direction: column; height: auto; }
-      .terminal-panel { grid-column: 1 / -1; grid-row: 5; }
-      .nav-panel { height: auto; padding: 15px; } .control-bar { height: 100px; }
+        .cockpit { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto auto; }
+        .video-section { grid-column: 1 / -1; grid-row: 1; height: 320px; }
+        .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 280px; }
+        .data-panel { grid-column: 2 / 3; grid-row: 2; height: 280px; }
+        .map-panel { grid-column: 1 / -1; grid-row: 3; height: 300px; }
+        #locked-panel, #control-container { grid-column: 1 / -1; grid-row: 4; flex-direction: column; height: auto; }
+        .terminal-panel { grid-column: 1 / -1; grid-row: 5; }
+        .nav-panel { height: auto; padding: 15px; } .control-bar { height: 100px; }
     }
     @media (max-width: 600px) { 
-      .cockpit { display: flex; flex-direction: column; height: auto; gap: 20px; padding-bottom: 40px; }
-      .video-section { 
-        display: flex; flex-direction: column; 
-        height: auto; gap: 15px; 
-      } 
-      .cam-box { height: 220px; width: 100%; }
-      .map-panel { height: 300px !important; min-height: 300px; display: flex; }
-      #locked-panel, #control-container { width: 100%; background: transparent; border-top: none; padding: 0; z-index: 1; flex-direction: column; gap: 10px; box-shadow: none; }
-      #control-container { display: none; }
-      .control-bar { height: 90px; }
-      .btn { clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); font-size: 18px; }
-      .nav-panel { height: auto; flex-direction: column; gap: 10px; } .nav-row { width: 100%; }
-      .header-right { justify-content: flex-end; gap: 5px; }
-      .maint-btn { padding: 4px 8px; font-size: 10px; }
-      .time-box { font-size: 11px; padding: 4px 6px; min-width: 70px; }
+        .cockpit { display: flex; flex-direction: column; height: auto; gap: 20px; padding-bottom: 40px; }
+        .video-section { display: flex; flex-direction: column; height: auto; gap: 15px; } .cam-box { height: 220px; }
+        .map-panel { height: 300px !important; min-height: 300px; display: flex; }
+        .data-panel { height: auto; min-height: 320px; }
+        #locked-panel, #control-container { width: 100%; background: transparent; border-top: none; padding: 0; z-index: 1; flex-direction: column; gap: 10px; box-shadow: none; }
+        #control-container { display: none; }
+        .control-bar { height: 90px; }
+        .btn { clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); font-size: 18px; }
+        .nav-panel { height: auto; flex-direction: column; gap: 10px; } .nav-row { width: 100%; }
+        header { height: auto; padding: 10px; flex-wrap: wrap; justify-content: center; gap: 10px; }
     }
 
     /* Modals */
@@ -290,10 +218,9 @@
     @media (max-width: 700px) { .charts-grid { grid-template-columns: 1fr; } }
     
     /* Table */
-    .table-wrapper { overflow-x: auto; width: 100%; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; min-width: 800px; }
     th, td { border: 1px solid #444; padding: 10px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    th { color: var(--cyber-blue); background: #080a10; text-transform: uppercase; font-weight: bold; position: sticky; top: 0; z-index: 5; }
+    th { color: var(--cyber-blue); background: rgba(0,240,255,0.05); text-transform: uppercase; font-weight: bold; position: sticky; top: 0; background: #080a10; z-index: 5; }
     tr:nth-child(even) { background: rgba(255,255,255,0.02); }
     
     /* Login Box */
@@ -346,6 +273,7 @@
         if(currentSpeedDisplay < 0.05) currentSpeedDisplay = 0;
         
         document.getElementById('speed-val').innerText = currentSpeedDisplay.toFixed(2);
+        // Needle: 0m/s = -135deg, 6m/s = +135deg (Range 270 deg)
         const maxMs = 6.0;
         const rotation = -135 + ((Math.min(currentSpeedDisplay, maxMs) / maxMs) * 270);
         document.getElementById('needle').style.transform = `translateX(-50%) rotate(${rotation}deg)`;
@@ -399,8 +327,8 @@
     window.setSpeed = (val) => {
         const speedMs = parseFloat(val); 
         targetSpeed = speedMs; 
-        let pct = 25; // Default 0.5m/s
-        if (speedMs > 2.0) pct = 200; // 5.0m/s
+        let pct = Math.floor((speedMs * 35) + 20);
+        if(pct > 200) pct = 200; if(pct < 25) pct = 25;
         update(ref(db), { "speed_factor": pct });
     }
 
@@ -452,44 +380,28 @@
         navMode = document.getElementById('move-mode').value;
         const sl = document.getElementById('slider-cont');
         const slider = document.getElementById('dist-slider');
-        const valDisp = document.getElementById('n-val'); 
+        const valDisp = document.getElementById('slider-val');
         
-        if(navMode==="hold") { 
-            sl.style.opacity=0.3; sl.style.pointerEvents="none"; valDisp.innerText="MANUAL"; 
-        } else {
+        if(navMode==="hold") { sl.style.opacity=0.3; sl.style.pointerEvents="none"; valDisp.innerText="MANUAL"; }
+        else {
             sl.style.opacity=1; sl.style.pointerEvents="auto";
             if(navMode==="meters") { slider.min=0.5; slider.max=5; slider.step=0.5; slider.value=0.5; window.updateDist(0.5); }
             if(navMode==="km") { slider.min=1; slider.max=20; slider.step=1; slider.value=1; window.updateDist(1); }
         }
     }
-    window.updateDist = (v) => { sliderValue=v; document.getElementById('n-val').innerText=v+(navMode==="meters"?" m":" km"); }
+    window.updateDist = (v) => { sliderValue=v; document.getElementById('slider-val').innerText=v+(navMode==="meters"?" m":" km"); }
 
     window.handlePress = (dir, e) => {
-        // Use onpointerdown for responsiveness
-        if (navMode === "hold") {
-             if(e && e.cancelable) e.preventDefault();
-             sendCommand(dir);
-        } else {
-             // Distance mode: Click once to send command
-             // Check event type to avoid double firing (mousedown AND touchstart)
-             if(e.type === "pointerdown" || e.type === "click") { // Using click or pointerdown
-                let d = (navMode === "meters") ? sliderValue : sliderValue*1000;
-                let prefix = (dir==="FORWARD"?"FWD_":"BWD_");
-                // UNIQUE ID to force new command every time
-                let uniqueCmd = prefix + d + "_" + Date.now();
-                sendCommand(uniqueCmd);
-                logEvent(`[NAV] AUTO: ${d}m`);
-             }
+        if(e && e.cancelable) e.preventDefault();
+        if (navMode === "hold") { sendCommand(dir); } 
+        else {
+            let d = (navMode==="meters") ? sliderValue : sliderValue*1000;
+            let prefix = (dir==="FORWARD"?"FWD_":"BWD_");
+            sendCommand(prefix + d);
+            logEvent(`[NAV] AUTO: ${d}m`);
         }
     }
-
-    window.handleRelease = (e) => { 
-        if (navMode === "hold") {
-             if(e && e.cancelable) e.preventDefault();
-             sendCommand('STOP'); 
-        }
-        // Do nothing for distance mode on release
-    }
+    window.handleRelease = (e) => { if(e && e.cancelable) e.preventDefault(); if(navMode==="hold") sendCommand('STOP'); }
     window.sendCommand = (c) => { set(ref(db, 'command'), c); logEvent(`CMD: ${c}`); }
 
     window.connectCams = (passedUrl = null) => {
@@ -531,7 +443,7 @@
                 speedLog = []; vertLog = []; latLog = []; comfortLog = [];
                 logEvent("[SYS] MISSION STARTED");
             }
-            // Sim Data if Sensor is 0
+            // Sim Data
             if(vib === 0) vib = (Math.random() * (0.315 - 0.157) + 0.157);
             if(vert === 0) vert = (Math.random() * (1.2 - 0.07) + 0.07);
             let l = (Math.random() * (1.7 - 0.05) + 0.05);
@@ -580,7 +492,6 @@
             let logs = [];
             snap.forEach(c => logs.unshift(c.val()));
             
-            // FILL 10 ROWS LOGIC
             let data = [...logs];
             if(data.length < 10) {
                  const mock = generateMockData(10 - data.length);
@@ -627,8 +538,8 @@
       }
 
       document.getElementById('vib-val').innerText = Math.abs(comfort).toFixed(3) + " m/s²";
-      document.getElementById('vert-val').innerText = Math.abs(vert).toFixed(2) + " mm/s²";
-      document.getElementById('lat-val').innerText = Math.abs(latMove).toFixed(2) + " mm/s²";
+      document.getElementById('vert-val').innerText = Math.abs(vert).toFixed(2) + " mm";
+      document.getElementById('lat-val').innerText = Math.abs(latMove).toFixed(2) + " mm";
       
       if(data.targ_dist) document.getElementById('dist-val').innerText = (data.prog_dist || 0).toFixed(1) + " / " + data.targ_dist.toFixed(1) + " m";
       else document.getElementById('dist-val').innerText = "MANUAL";
@@ -801,7 +712,14 @@
       <div id="speed-select-box">
          <div class="spd-title">TARGET VELOCITY</div>
          <select id="spd-select" class="spd-dropdown" onchange="setSpeed(this.value)">
+             <option value="0.2">0.2 m/s</option>
              <option value="0.5" selected>0.5 m/s</option>
+             <option value="1.0">1.0 m/s</option>
+             <option value="1.5">1.5 m/s</option>
+             <option value="2.0">2.0 m/s</option>
+             <option value="2.5">2.5 m/s</option>
+             <option value="3.0">3.0 m/s</option>
+             <option value="4.0">4.0 m/s</option>
              <option value="5.0">5.0 m/s</option>
          </select>
       </div>
@@ -830,7 +748,7 @@
     <div id="control-container" class="control-container">
       <div class="nav-panel">
         <div class="nav-row"><label>NAV MODE:</label><select id="move-mode" onchange="updateNavMode()"><option value="hold">AUTO HOLD (MANUAL)</option><option value="meters" selected>METERS (AUTO)</option><option value="km">KILOMETERS (AUTO)</option></select></div>
-        <div class="nav-row slider-container" id="slider-cont"><label>DIST:</label><input type="range" id="dist-slider" oninput="updateDist(this.value)"><div id="n-val" class="slider-val">0.5 m</div></div>
+        <div class="nav-row slider-container" id="slider-cont"><label>DIST:</label><input type="range" id="dist-slider" oninput="updateDist(this.value)"><div id="slider-val" class="slider-val">0.5 m</div></div>
         <button class="btn-config" onclick="toggleCamConfig()">CONFIGURE LINK +</button>
         <div id="cam-config-area"><input type="text" id="cam-url" placeholder="Paste Cloudflare URL..."><button onclick="connectCams()" style="width:100%; margin-top:5px; background:var(--cyber-blue); border:none; color:black; font-weight:bold; cursor:pointer;">CONNECT</button></div>
       </div>
@@ -865,7 +783,7 @@
             <h2 style="color:var(--cyber-green);">MISSION DATA LOGS</h2>
             <button onclick="closeModal('dataModal')" class="close-btn" style="font-size:24px; border:none;">X</button>
         </div>
-        <div class="table-wrapper">
+        <div class="table-container">
             <table>
                 <thead>
                     <tr><th>TRIP</th><th>START LOC</th><th>START TIME</th><th>STOP LOC</th><th>STOP TIME</th><th>SPEED</th><th>VERT RMS</th><th>LAT RMS</th><th>COMFORT</th><th>DIST</th></tr>
