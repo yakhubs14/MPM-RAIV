@@ -60,7 +60,7 @@
     .led { width: 10px; height: 10px; border-radius: 50%; border: 2px solid #555; transition: 0.2s; }
     .led-label { font-size: 10px; color: #888; margin-left: 5px; font-weight: bold; display: inline-block; }
     .led-red.active { background: var(--cyber-red); box-shadow: 0 0 10px var(--cyber-red); border-color: white; }
-    .led-orange.active { background: var(--cyber-orange); box-shadow: 0 0 10px var(--cyber-orange); border-color: white; animation: blinkFast 0.2s infinite alternate; }
+    .led-orange.active { background: #ffa500; box-shadow: 0 0 10px #ffa500; border-color: white; animation: blinkFast 0.2s infinite alternate; }
     
     .maint-btn { 
         background: rgba(252, 238, 10, 0.1); border: 1px solid var(--cyber-yellow); color: var(--cyber-yellow);
@@ -72,7 +72,7 @@
     /* --- LAYOUT GRID --- */
     .cockpit {
       flex: 1; display: grid;
-      grid-template-rows: minmax(400px, auto) minmax(350px, auto) auto 150px; 
+      grid-template-rows: minmax(400px, auto) minmax(350px, auto) auto 250px; 
       grid-template-columns: 350px 1fr 350px;
       gap: 15px; padding: 15px; width: 100%; max-width: 1800px; margin: 0 auto;
     }
@@ -113,31 +113,61 @@
     }
 
     /* --- SPEEDOMETER --- */
-    .speed-panel { grid-column: 2 / 3; grid-row: 2 / 3; align-items: center; justify-content: flex-start; border-top: 4px solid var(--cyber-blue); padding-bottom: 20px; }
-    .gauge-container { position: relative; width: 200px; height: 200px; margin-top: 10px; display:flex; align-items:center; justify-content:center; }
-    svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-    circle { fill: none; stroke-width: 12; stroke-linecap: round; }
-    .bg-ring { stroke: #222; }
-    .fg-ring { stroke: var(--cyber-blue); stroke-dasharray: 565; stroke-dashoffset: 565; transition: stroke-dashoffset 0.5s ease-out; filter: drop-shadow(0 0 15px var(--cyber-blue)); }
+    /* DIGITAL DISPLAY */
+    .speed-panel { grid-column: 2 / 3; grid-row: 2 / 3; align-items: center; justify-content: center; border-top: 4px solid var(--cyber-blue); padding-bottom: 20px; display: flex; flex-direction: column; }
     
-    .speed-readout { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 10; }
-    .big-num { font-size: 52px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 0 10px rgba(0,240,255,0.6); font-family: 'Share Tech Mono'; }
-    .unit { font-size: 14px; color: var(--cyber-blue); letter-spacing: 2px; font-weight:bold; }
+    .digital-speed-container {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        width: 100%; padding: 20px;
+    }
+    
+    .speed-label-top {
+        background: rgba(0, 240, 255, 0.1); color: var(--cyber-blue);
+        padding: 5px 15px; font-size: 12px; letter-spacing: 2px; font-weight: bold;
+        margin-bottom: 20px; border: 1px solid rgba(0, 240, 255, 0.3); text-transform: uppercase;
+    }
+    
+    .digital-speed-val {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 90px; font-weight: 800; color: white;
+        text-shadow: 0 0 20px rgba(0,240,255,0.8), 0 0 40px rgba(0,240,255,0.4);
+        line-height: 1; margin-bottom: 5px;
+    }
+    
+    .digital-unit {
+        font-size: 18px; color: var(--cyber-blue); letter-spacing: 4px; font-weight: bold; text-transform: uppercase;
+    }
 
     /* SPEED SELECTOR */
-    #speed-select-box { display: none; width: 85%; margin-top: 20px; animation: slideDown 0.5s ease-out; }
+    #speed-select-box { display: none; width: 85%; margin-top: 30px; animation: slideDown 0.5s ease-out; }
     .spd-dropdown { width: 100%; background: #050505; color: var(--cyber-yellow); border: 1px solid var(--cyber-yellow); padding: 10px; font-family: 'Oxanium'; font-size: 16px; outline: none; text-align: center; appearance: none; cursor: pointer; box-shadow: 0 0 10px rgba(252, 238, 10, 0.2); }
     .spd-dropdown:hover { background: #111; }
     .spd-title { text-align:center; color: #666; font-size: 10px; letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase; }
 
     /* --- TELEMETRY --- */
-    .data-panel { grid-column: 3 / 4; grid-row: 2 / 3; display: flex; flex-direction: column; gap: 5px; font-size: 13px; overflow: hidden; }
-    .data-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding-right: 5px; }
+    .data-panel { grid-column: 3 / 4; grid-row: 2 / 3; display: flex; flex-direction: column; gap: 5px; font-size: 13px; overflow: hidden; position: relative; }
+    .data-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding-right: 5px; transition: opacity 0.3s; }
     .data-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 10px 15px; border-left: 3px solid #444; flex-shrink: 0; }
     .data-row span:last-child { font-weight: bold; font-size: 15px; font-family: 'Share Tech Mono'; }
     .val-vib { color: var(--cyber-yellow); border-left-color: var(--cyber-yellow); }
     .val-dist { color: var(--cyber-green); border-left-color: var(--cyber-green); }
     .info-btn { background: none; border: 1px solid #666; color: #aaa; width: 16px; height: 16px; border-radius: 50%; font-size: 10px; cursor: pointer; margin-left: 5px; display: inline-flex; align-items: center; justify-content: center; }
+    
+    /* OFFLINE OVERLAY FOR TELEMETRY */
+    .offline-overlay {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        display: none; /* Toggled via JS */
+        flex-direction: column; justify-content: center; align-items: center;
+        z-index: 50; backdrop-filter: blur(5px);
+        animation: fadeIn 0.5s;
+    }
+    .offline-text {
+        color: var(--cyber-red); font-weight: 800; font-size: 18px; 
+        text-shadow: 0 0 10px var(--cyber-red); letter-spacing: 2px;
+        text-align: center; margin-bottom: 10px;
+    }
+    .offline-sub { font-size: 10px; color: #aaa; letter-spacing: 1px; }
     
     /* TERMINAL */
     .terminal-panel { grid-column: 1 / -1; grid-row: 4 / 5; background: #000; border: 1px solid var(--cyber-green); padding: 10px; font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--cyber-green); overflow-y: auto; box-shadow: inset 0 0 20px rgba(5, 255, 161, 0.1); min-height: 120px; }
@@ -185,29 +215,45 @@
     .btn-config { background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s; font-weight: bold; }
     .btn-data { flex: 0.4; background: rgba(0,240,255,0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
 
+    /* --- BOTTOM SECTION (SPLIT TERMINAL & MAG) --- */
+    .bottom-section { grid-column: 1 / -1; grid-row: 4 / 5; display: flex; gap: 15px; height: 100%; min-height: 250px; }
+    
+    /* Re-styling terminal to fit in split view */
+    .terminal-panel { flex: 6; background: #000; border: 1px solid var(--cyber-green); padding: 10px; font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--cyber-green); overflow-y: auto; box-shadow: inset 0 0 20px rgba(5, 255, 161, 0.1); display: flex; flex-direction: column; }
+    .terminal { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; }
+
+    /* MAG PANEL STYLES (NEW ADDITION) */
+    .mag-panel { flex: 4; border: 1px solid var(--cyber-yellow); display: flex; flex-direction: column; background: var(--panel-bg); clip-path: polygon(15px 0, 100% 0, 100% 100%, 0 100%, 0 15px); }
+    .mag-content { flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; font-family: 'Share Tech Mono'; }
+    
+    .mag-section-title { font-size: 10px; color: #888; border-bottom: 1px solid #333; margin-bottom: 5px; padding-bottom: 2px; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
+    .mag-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 4px; }
+    .mag-val { font-weight: bold; color: white; }
+    
+    .stress-bar-box { width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden; margin-top: 2px; }
+    .stress-bar { height: 100%; background: var(--cyber-green); width: 0%; transition: width 0.2s, background 0.2s; }
+    
+    .status-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; background: #222; color: #888; text-align: center; width: 100%; margin-top: 5px; border: 1px solid #444; }
+    .status-ok { background: rgba(5, 255, 161, 0.2); color: var(--cyber-green); border-color: var(--cyber-green); }
+
     /* RESPONSIVE */
-    @media (min-width: 1025px) { .cockpit { grid-template-columns: 340px 1fr 340px; grid-template-rows: auto auto auto; } }
+    @media (min-width: 1025px) { .cockpit { grid-template-columns: 340px 1fr 340px; } }
     @media (max-width: 1024px) { 
         .cockpit { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto auto; }
         .video-section { grid-column: 1 / -1; grid-row: 1; height: 320px; }
         .speed-panel { grid-column: 1 / 2; grid-row: 2; height: 280px; }
         .data-panel { grid-column: 2 / 3; grid-row: 2; height: 280px; }
         .map-panel { grid-column: 1 / -1; grid-row: 3; height: 300px; }
-        #locked-panel, #control-container { grid-column: 1 / -1; grid-row: 4; flex-direction: column; height: auto; }
-        .terminal-panel { grid-column: 1 / -1; grid-row: 5; }
-        .nav-panel { height: auto; padding: 15px; } .control-bar { height: 100px; }
+        #locked-panel, .control-container { grid-column: 1 / -1; grid-row: 4; }
+        .bottom-section { grid-column: 1 / -1; grid-row: 5; height: 250px; }
     }
     @media (max-width: 600px) { 
-        .cockpit { display: flex; flex-direction: column; height: auto; gap: 20px; padding-bottom: 40px; }
-        .video-section { display: flex; flex-direction: column; height: auto; gap: 15px; } .cam-box { height: 220px; }
-        .map-panel { height: 300px !important; min-height: 300px; display: flex; }
-        .data-panel { height: auto; min-height: 320px; }
-        #locked-panel, #control-container { width: 100%; background: transparent; border-top: none; padding: 0; z-index: 1; flex-direction: column; gap: 10px; box-shadow: none; }
-        #control-container { display: none; }
-        .control-bar { height: 90px; }
-        .btn { clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); font-size: 18px; }
-        .nav-panel { height: auto; flex-direction: column; gap: 10px; } .nav-row { width: 100%; }
-        header { height: auto; padding: 10px; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        .cockpit { display: flex; flex-direction: column; gap: 20px; }
+        .video-section { height: auto; gap: 10px; } .cam-box { height: 200px; }
+        .map-panel { height: 300px !important; }
+        .bottom-section { flex-direction: column; height: auto; gap: 15px; }
+        .terminal-panel, .mag-panel { min-height: 200px; }
+        header { flex-wrap: wrap; justify-content: center; }
     }
 
     /* Modals */
@@ -235,6 +281,7 @@
     @keyframes flicker { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     @keyframes pulseRed { 50% { box-shadow: inset 0 0 40px rgba(255,0,0,0.3); } }
     @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   </style>
 
   <script type="module">
@@ -255,6 +302,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // VARS
     let navMode = "meters"; let sliderValue = 0.5; let mapLoc = { lat: 0, lng: 0 };
     let userLoc = null;
     let currentSpeedDisplay = 0.0; let targetSpeed = 0.0;
@@ -263,6 +311,11 @@
     const SEMENYIH_LAT = 2.958196;
     const SEMENYIH_LNG = 101.823593;
     const DEFAULT_CAM_URL = "https://preceding-headlines-directories-clearance.trycloudflare.com";
+    let isVehicleMoving = false; // Flag for Movement
+    
+    // --- SENSOR WATCHDOG ---
+    let lastSensorHeartbeat = 0;
+    let isSensorOnline = false;
 
     // --- PHYSICS LOOP ---
     function animateSpeed() {
@@ -272,15 +325,48 @@
         } else { currentSpeedDisplay = targetSpeed; }
         if(currentSpeedDisplay < 0.05) currentSpeedDisplay = 0;
         
+        // Digital Update
         document.getElementById('speed-val').innerText = currentSpeedDisplay.toFixed(2);
-        // Needle: 0m/s = -135deg, 6m/s = +135deg (Range 270 deg)
-        const maxMs = 6.0;
-        const rotation = -135 + ((Math.min(currentSpeedDisplay, maxMs) / maxMs) * 270);
-        document.getElementById('needle').style.transform = `translateX(-50%) rotate(${rotation}deg)`;
-
         requestAnimationFrame(animateSpeed);
     }
     requestAnimationFrame(animateSpeed);
+
+    // --- MMM SENSOR SIMULATION (PHYSICS ENGINE) ---
+    // Simulates "Self-Magnetic Leakage Field" logic:
+    // Hp: Tangential Field
+    // Hz: Normal Field
+    let simHp = 20; let simHz = 10; 
+    
+    function updateMagneticSim() {
+        if (!isVehicleMoving) {
+            // SAFE MODE / STANDBY
+            document.getElementById('mmm-hp').innerText = "0.0 A/m";
+            document.getElementById('mmm-hz').innerText = "0.0 A/m";
+            document.getElementById('mmm-status').innerText = "SENSOR STANDBY";
+            document.getElementById('mmm-status').className = "status-badge status-ok";
+            document.getElementById('bar-hp').style.width = "0%";
+            return;
+        }
+
+        // Random Fluctuation (Safe Zone Only)
+        // Hp Safe Range: 20-35
+        // Hz Safe Range: 5-15
+        simHp = 25 + (Math.random() - 0.5) * 10; // 20 to 30
+        simHz = 10 + (Math.random() - 0.5) * 5;  // 7.5 to 12.5
+        
+        // Update UI
+        document.getElementById('mmm-hp').innerText = simHp.toFixed(1) + " A/m";
+        document.getElementById('mmm-hz').innerText = simHz.toFixed(1) + " A/m";
+        
+        document.getElementById('mmm-status').innerText = "HEALTHY RAIL SIGNATURE";
+        document.getElementById('mmm-status').className = "status-badge status-ok";
+        
+        // Bars
+        let hpPct = (simHp / 50) * 100; // 50 is scale max
+        document.getElementById('bar-hp').style.width = hpPct + "%";
+        document.getElementById('bar-hp').style.background = "var(--cyber-green)";
+    }
+    setInterval(updateMagneticSim, 500);
 
     // --- DATA MOCKER ---
     function generateMockData(count = 10) {
@@ -418,15 +504,77 @@
     window.toggleMaint = () => document.getElementById('maintModal').style.display='flex';
     window.closeModal = (id) => document.getElementById(id).style.display='none';
 
+    // --- FIREBASE LISTENERS ---
+    
+    // 1. HALL SENSORS (LIVE DATA + HEARTBEAT)
+    onValue(ref(db, 'telemetry/hall_sensors'), (snap) => {
+        const d = snap.val();
+        
+        // Update Heartbeat
+        lastSensorHeartbeat = Date.now();
+        if (!isSensorOnline) {
+            isSensorOnline = true;
+            logEvent("[HALL] SENSOR NODE CONNECTED");
+            document.getElementById('offline-mask').style.display = 'none';
+        }
+
+        if(d) {
+             if (isVehicleMoving) {
+                // H1
+                document.getElementById('h1-val').innerText = (d.h1 && d.h1.val) ? d.h1.val : "0";
+                const trig1 = (d.h1 && d.h1.trig);
+                document.getElementById('h1-led').style.background = trig1 ? "var(--cyber-red)" : "#333";
+                document.getElementById('h1-led').style.boxShadow = trig1 ? "0 0 10px red" : "none";
+                
+                // H2
+                document.getElementById('h2-val').innerText = (d.h2 && d.h2.val) ? d.h2.val : "0";
+                const trig2 = (d.h2 && d.h2.trig);
+                document.getElementById('h2-led').style.background = trig2 ? "var(--cyber-red)" : "#333";
+                document.getElementById('h2-led').style.boxShadow = trig2 ? "0 0 10px red" : "none";
+             } else {
+                // FORCE 0 IF STOPPED
+                document.getElementById('h1-val').innerText = "0";
+                document.getElementById('h1-led').style.background = "#333";
+                document.getElementById('h1-led').style.boxShadow = "none";
+                document.getElementById('h2-val').innerText = "0";
+                document.getElementById('h2-led').style.background = "#333";
+                document.getElementById('h2-led').style.boxShadow = "none";
+             }
+        }
+    });
+    
+    // SENSOR WATCHDOG (Run every 500ms)
+    setInterval(() => {
+        const timeSinceLast = Date.now() - lastSensorHeartbeat;
+        // If more than 3000ms (3 seconds) without data, assume OFFLINE
+        if (timeSinceLast > 3000 && isSensorOnline) {
+            isSensorOnline = false;
+            logEvent("[WARN] SENSOR NODE LOST");
+            // Trigger Offline UI
+            document.getElementById('offline-mask').style.display = 'flex';
+            
+            // Clear values
+            document.getElementById('vib-val').innerText = "--";
+            document.getElementById('vert-val').innerText = "--";
+            document.getElementById('lat-val').innerText = "--";
+        }
+    }, 500);
+
     // --- TELEMETRY ---
-    let isMoving = false; let startTime = null;
+    let startTime = null;
     let speedLog = [], vertLog = [], latLog = [], comfortLog = [];
 
     const telemetryRef = ref(db, 'telemetry');
     onValue(telemetryRef, (snapshot) => {
       const data = snapshot.val();
       if(data) {
-        updateUI(data);
+        // MOVEMENT CHECK - GLOBAL FLAG
+        isVehicleMoving = (data.status === "MOVING");
+        
+        // ONLY UPDATE UI IF SENSOR IS ONLINE
+        if (isSensorOnline) {
+            updateUI(data);
+        }
         
         const spd = data.speed || 0;
         let vib = data.vibration || 0;
@@ -437,8 +585,7 @@
             let sel = parseFloat(document.getElementById('spd-select').value);
             targetSpeed = sel;
 
-            if(!isMoving) {
-                isMoving = true;
+            if(!startTime) {
                 startTime = new Date();
                 speedLog = []; vertLog = []; latLog = []; comfortLog = [];
                 logEvent("[SYS] MISSION STARTED");
@@ -452,10 +599,10 @@
         } 
         else if(data.status === "STANDBY") {
             targetSpeed = 0.0; 
-            if (isMoving) {
-                isMoving = false;
+            if (startTime) {
                 logEvent("[SYS] MISSION COMPLETE");
                 saveLog(new Date());
+                startTime = null; // Reset
             }
         }
       }
@@ -687,30 +834,17 @@
 
     <!-- SPEED & SLIDER -->
     <div class="panel speed-panel">
-      <div class="panel-header"><span>SPEEDOMETER </span><span>M/S</span></div>
-      <div class="gauge-wrapper">
-         <!-- Ticks -->
-         <div class="tick-mark major" style="transform: rotate(-135deg);"></div>
-         <div class="tick-mark" style="transform: rotate(-112.5deg);"></div>
-         <div class="tick-mark major" style="transform: rotate(-90deg);"></div>
-         <div class="tick-mark" style="transform: rotate(-67.5deg);"></div>
-         <div class="tick-mark major" style="transform: rotate(-45deg);"></div>
-         <div class="tick-mark" style="transform: rotate(-22.5deg);"></div>
-         <div class="tick-mark major" style="transform: rotate(0deg);"></div>
-         <div class="tick-mark" style="transform: rotate(22.5deg);"></div>
-         <div class="tick-mark major" style="transform: rotate(45deg);"></div>
-         <div class="tick-mark" style="transform: rotate(67.5deg);"></div>
-         <div class="tick-mark major" style="transform: rotate(90deg);"></div>
-         <div class="tick-mark" style="transform: rotate(112.5deg);"></div>
-         <div class="tick-mark major" style="transform: rotate(135deg);"></div>
-
-         <div id="needle" class="needle"></div>
-         <div class="needle-cap"></div>
-
-         <div class="speed-readout"><div id="speed-val" class="big-num">0.0</div><div class="unit">M/S</div></div>
+      <div class="panel-header"><span>SPEED CONTROL</span><span>M/S</span></div>
+      
+      <!-- DIGITAL DISPLAY REPLACEMENT -->
+      <div class="digital-speed-container">
+          <div class="speed-label-top">SPEED CONTROL M/S</div>
+          <div id="speed-val" class="digital-speed-val">0.00</div>
+          <div class="digital-unit">M/S</div>
       </div>
+
       <div id="speed-select-box">
-         <div class="spd-title">TARGET SPEED</div>
+         <div class="spd-title">TARGET VELOCITY</div>
          <select id="spd-select" class="spd-dropdown" onchange="setSpeed(this.value)">
              <option value="0.2">0.2 m/s</option>
              <option value="0.5" selected>0.5 m/s</option>
@@ -728,6 +862,13 @@
     <!-- DATA -->
     <div class="panel data-panel">
       <div class="panel-header"><span>TELEMETRY STREAM</span><span>LIVE</span></div>
+      
+      <!-- OFFLINE OVERLAY -->
+      <div id="offline-mask" class="offline-overlay">
+          <div class="offline-text">SENSOR NODE OFFLINE</div>
+          <div class="offline-sub">WAITING FOR MAGNETIC LINK...</div>
+      </div>
+
       <div class="data-scroll">
           <div class="data-row"><span>TRACK COMFORT LEVEL <button class="info-btn" onclick="document.getElementById('isoModal').style.display='flex'">i</button></span> <span id="vib-val" class="val" style="color:var(--cyber-yellow);">0.000 m/s²</span></div>
           <div class="data-row"><span>VERTICAL MOVEMENT RMS</span> <span id="vert-val" class="val" style="color:var(--cyber-green);">0.00 mm/s²</span></div>
@@ -760,16 +901,55 @@
       </div>
     </div>
     
-    <!-- TERMINAL (NEW LOCATION) -->
-    <div class="panel terminal-panel">
-        <div class="panel-header">SYSTEM CONSOLE</div>
-        <div id="terminal" class="terminal">
-            <div>> SYSTEM INITIALIZED...</div>
+    <!-- BOTTOM SECTION (TERMINAL + MAGNETIC SENSOR) -->
+    <div class="bottom-section">
+        <!-- SYSTEM CONSOLE -->
+        <div class="panel terminal-panel">
+            <div class="panel-header">SYSTEM CONSOLE</div>
+            <div id="terminal" class="terminal">
+                <div>> SYSTEM INITIALIZED...</div>
+            </div>
+        </div>
+
+        <!-- MAG INSPECTION UNIT -->
+        <div class="panel mag-panel">
+            <div class="panel-header">MAGNETIC INSPECTION UNIT</div>
+            <div class="mag-content">
+                <!-- MMM Section (Simulated) -->
+                <div>
+                    <div class="mag-section-title">MMM SENSOR [STRESS ANALYSIS] <button class="info-btn" onclick="alert('MMM: Metal Magnetic Memory. Measures stress concentration zones.')">i</button></div>
+                    <div class="mag-row"><span>Hp (Tangential):</span><span id="mmm-hp" class="mag-val" style="color:var(--cyber-blue);">0.0 A/m</span></div>
+                    <div class="stress-bar-box"><div id="bar-hp" class="stress-bar"></div></div>
+                    <div class="mag-row" style="margin-top:4px;"><span>Hz (Normal):</span><span id="mmm-hz" class="mag-val" style="color:var(--cyber-yellow);">0.0 A/m</span></div>
+                    <div id="mmm-status" class="status-badge status-ok">SENSOR STANDBY</div>
+                </div>
+
+                <!-- Hall Sensor Section (Live) -->
+                <div style="border-top:1px solid #333; padding-top:5px; margin-top:5px;">
+                    <div class="mag-section-title">HALL SENSORS [MAGNETIC FLUX]</div>
+                    <!-- Hall 1 -->
+                    <div class="mag-row">
+                        <span>SENSOR 01 (L):</span>
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            <span id="h1-val" class="mag-val">0</span> <span style="font-size:9px; color:#666;">RAW</span>
+                            <div id="h1-led" style="width:8px; height:8px; border-radius:50%; background:#333; border:1px solid #555;"></div> <span style="font-size:9px;">TRIG</span>
+                        </div>
+                    </div>
+                    <!-- Hall 2 -->
+                    <div class="mag-row">
+                        <span>SENSOR 02 (R):</span>
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            <span id="h2-val" class="mag-val">0</span> <span style="font-size:9px; color:#666;">RAW</span>
+                            <div id="h2-led" style="width:8px; height:8px; border-radius:50%; background:#333; border:1px solid #555;"></div> <span style="font-size:9px;">TRIG</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
   </div>
 
-  <!-- LOGIN MODAL -->
+  <!-- MODALS (Login, Maint, Data, ISO) -->
   <div id="loginModal" class="modal"><div class="login-box"><h2 style="color:var(--cyber-red);">AUTHORIZATION</h2><input type="text" id="user" class="login-input" placeholder="USERNAME"><input type="password" id="pass" class="login-input" placeholder="PASSWORD"><button class="login-btn" onclick="performLogin()">UNLOCK</button></div></div>
   
   <div id="maintModal" class="modal"><div class="modal-box" style="max-width:400px;"><div style="display:flex; justify-content:space-between;"><h3 style="color:var(--cyber-blue);">SYSTEM MAINTENANCE</h3><button onclick="closeModal('maintModal')" class="close-btn">X</button></div><p style="font-size:12px; color:#aaa;">CAMERA CONFIGURATION LINK</p><input type="text" id="cam-url" placeholder="Paste Cloudflare URL..." style="width:100%; padding:10px; background:#222; border:1px solid #444; color:white;"><button onclick="connectCams(); closeModal('maintModal');" style="width:100%; margin-top:10px; background:var(--cyber-green); padding:10px; border:none; font-weight:bold; cursor:pointer;">UPDATE LINK</button></div></div>
