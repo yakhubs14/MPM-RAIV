@@ -309,6 +309,7 @@
     let currentSpeedDisplay = 0.0; let targetSpeed = 0.0;
     let charts = { c1: null, c2: null, c3: null, c4: null };
     
+    // UPDATED COORDINATES
     const SEMENYIH_LAT = 3.128625;
     const SEMENYIH_LNG = 101.738602;
     const DEFAULT_CAM_URL = "https://preceding-headlines-directories-clearance.trycloudflare.com";
@@ -666,8 +667,8 @@
             data.forEach(l => {
                 const row = `<tr>
                     <td>${trip++}</td>
-                    <td>${l.start_loc || "3.1286, 101.8236"}</td><td>${l.start_time}</td>
-                    <td>${l.stop_loc || "3.1286, 101.8236"}</td><td>${l.stop_time}</td>
+                    <td>${l.start_loc || "2.9582, 101.8236"}</td><td>${l.start_time}</td>
+                    <td>${l.stop_loc || "2.9582, 101.8236"}</td><td>${l.stop_time}</td>
                     <td style="color:cyan">${l.speed}</td>
                     <td style="color:yellow">${l.vert_rms}</td>
                     <td style="color:orange">${l.lat_rms}</td>
@@ -909,9 +910,9 @@
           <div class="data-row"><span>TRACK COMFORT LEVEL <button class="info-btn" onclick="document.getElementById('isoModal').style.display='flex'">i</button></span> <span id="vib-val" class="val" style="color:var(--cyber-yellow);">0.000 m/s²</span></div>
           <div class="data-row"><span>VERTICAL MOVEMENT RMS</span> <span id="vert-val" class="val" style="color:var(--cyber-green);">0.00 mm/s²</span></div>
           <div class="data-row"><span>LATERAL MOVEMENT RMS</span> <span id="lat-val" class="val" style="color:var(--cyber-orange);">0.00 mm/s²</span></div>
-          <div class="data-row"><span>CONTROL MODE</span> <span id="dist-val" class="val">MANUAL</span></div>
+          <div class="data-row"><span>AUTO DISTANCE</span> <span id="dist-val" class="val">MANUAL</span></div>
           <div class="data-row"><span>DISTANCE TO RAIV</span> <span id="user-dist" class="val">LOCATING...</span></div>
-          <div class="data-row"><span>RAIV STATUS</span> <span id="status-txt" class="val" style="color:lime;">STANDBY</span></div>
+          <div class="data-row"><span>STATUS</span> <span id="status-txt" class="val" style="color:lime;">STANDBY</span></div>
       </div>
     </div>
     
