@@ -724,8 +724,18 @@
       let displayLng = SEMENYIH_LNG;
       let statusText = "SAT LINK: NO SIGNAL";
       
-      if(data.lat && data.lat !== 0) { 
-          displayLat = data.lat; displayLng = data.lng; statusText = "SAT LINK: LOCKED";
+      // --- FORCED COORDINATES FIX ---
+      // If we are in "NO SIGNAL" or if GPS data is 0/null/undefined, use hardcoded
+      if(!data.lat || data.lat === 0 || data.lng === 0) {
+          // Override with new hardcoded location
+          displayLat = SEMENYIH_LAT;
+          displayLng = SEMENYIH_LNG;
+          statusText = "SAT LINK: DEFAULT (SIM)"; // Indicate we are using default
+      } else {
+          // Use actual Firebase data if valid
+          displayLat = data.lat; 
+          displayLng = data.lng; 
+          statusText = "SAT LINK: LOCKED";
       }
       
       mapLoc = { lat: displayLat, lng: displayLng };
