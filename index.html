@@ -118,28 +118,30 @@
     
     .digital-speed-container {
         display: flex; flex-direction: column; align-items: center; justify-content: center;
-        width: 100%; padding: 20px;
+        width: 100%; height: 180px; 
+        margin-top: 10px;
     }
     
     .speed-label-top {
         background: rgba(0, 240, 255, 0.1); color: var(--cyber-blue);
         padding: 5px 15px; font-size: 12px; letter-spacing: 2px; font-weight: bold;
-        margin-bottom: 20px; border: 1px solid rgba(0, 240, 255, 0.3); text-transform: uppercase;
+        margin-bottom: 10px; border: 1px solid rgba(0, 240, 255, 0.3); text-transform: uppercase;
     }
     
     .digital-speed-val {
         font-family: 'Share Tech Mono', monospace;
-        font-size: 90px; font-weight: 800; color: white;
+        font-size: 100px; font-weight: 800; color: white;
         text-shadow: 0 0 20px rgba(0,240,255,0.8), 0 0 40px rgba(0,240,255,0.4);
-        line-height: 1; margin-bottom: 5px;
+        line-height: 1; margin-bottom: 0px;
     }
     
     .digital-unit {
-        font-size: 18px; color: var(--cyber-blue); letter-spacing: 4px; font-weight: bold; text-transform: uppercase;
+        font-size: 20px; color: var(--cyber-blue); letter-spacing: 4px; font-weight: bold; text-transform: uppercase;
+        margin-top: 5px;
     }
 
     /* SPEED SELECTOR */
-    #speed-select-box { display: none; width: 85%; margin-top: 30px; animation: slideDown 0.5s ease-out; }
+    #speed-select-box { display: none; width: 85%; margin-top: 20px; animation: slideDown 0.5s ease-out; }
     .spd-dropdown { width: 100%; background: #050505; color: var(--cyber-yellow); border: 1px solid var(--cyber-yellow); padding: 10px; font-family: 'Oxanium'; font-size: 16px; outline: none; text-align: center; appearance: none; cursor: pointer; box-shadow: 0 0 10px rgba(252, 238, 10, 0.2); }
     .spd-dropdown:hover { background: #111; }
     .spd-title { text-align:center; color: #666; font-size: 10px; letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase; }
@@ -180,7 +182,7 @@
         display: flex; justify-content: center; align-items: center; flex-direction: column;
         background: repeating-linear-gradient(45deg, rgba(255,0,60,0.05), rgba(255,0,60,0.05) 10px, rgba(255,0,60,0.1) 10px, rgba(255,0,60,0.1) 20px);
         border: 2px dashed var(--cyber-red); padding: 40px; cursor: pointer; text-align: center;
-        transition: 0.3s; animation: pulseRed 3s infinite;
+        transition: 0.3s; animation: pulseRed 3s infinite; min-height: 150px;
     }
     .lock-text { font-size: 20px; font-weight: 800; color: var(--cyber-red); text-shadow: 0 0 10px var(--cyber-red); margin-top: 10px; }
     #control-container { display: none; } 
@@ -189,8 +191,7 @@
     .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; font-size: 12px; }
     select { background: #050505; color: white; border: 1px solid var(--cyber-blue); padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none; text-transform: uppercase; }
     
-    #cam-config-area { display: none; margin-top: 5px; animation: slideDown 0.3s ease; }
-    input[type=text] { background: #111; color: var(--cyber-red); border: 1px solid var(--cyber-red); padding: 5px; font-family: 'Oxanium'; font-size: 12px; width: 100%; outline: none; }
+    /* Removed old cam-config-area as requested */
     
     /* SLIDER */
     .slider-container { width: 100%; display: flex; align-items: center; gap: 10px; margin-top: 10px; transition: opacity 0.3s; }
@@ -212,7 +213,7 @@
     .btn-stop:active { background: white; color: black; box-shadow: 0 0 40px var(--cyber-red); }
     .btn-bwd { background: rgba(252,238,10,0.15); color: var(--cyber-yellow); border: 2px solid var(--cyber-yellow); }
     .btn-bwd:active { background: white; color: black; box-shadow: 0 0 40px var(--cyber-yellow); }
-    .btn-config { background: transparent; border: 1px solid var(--cyber-red); color: var(--cyber-red); font-size: 10px; padding: 4px; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.3s; font-weight: bold; }
+    
     .btn-data { flex: 0.4; background: rgba(0,240,255,0.1); color: var(--cyber-blue); border: 1px solid var(--cyber-blue); font-size: 14px; }
 
     /* --- BOTTOM SECTION (SPLIT TERMINAL & MAG) --- */
@@ -462,6 +463,15 @@
     });
 
     // --- NAV LOGIC ---
+    // Fix: Updated directions URL
+    window.getDirections = () => {
+        if(mapLoc.lat !== 0 && mapLoc.lng !== 0) {
+            window.open(`https://www.google.com/maps/dir/?api=1&destination=${mapLoc.lat},${mapLoc.lng}`, '_blank');
+        } else {
+            alert("No target location available.");
+        }
+    }
+
     window.updateNavMode = () => {
         navMode = document.getElementById('move-mode').value;
         const sl = document.getElementById('slider-cont');
@@ -479,7 +489,11 @@
 
     window.handlePress = (dir, e) => {
         if(e && e.cancelable) e.preventDefault();
-        if (navMode === "hold") { sendCommand(dir); } 
+        if (navMode === "hold") { 
+            // Fix: Send a virtual long distance command to act as "Hold"
+            let cmd = (dir === "FORWARD") ? "FWD_50" : "BWD_50";
+            sendCommand(cmd);
+        } 
         else {
             let d = (navMode==="meters") ? sliderValue : sliderValue*1000;
             let prefix = (dir==="FORWARD"?"FWD_":"BWD_");
@@ -487,7 +501,10 @@
             logEvent(`[NAV] AUTO: ${d}m`);
         }
     }
-    window.handleRelease = (e) => { if(e && e.cancelable) e.preventDefault(); if(navMode==="hold") sendCommand('STOP'); }
+    window.handleRelease = (e) => { 
+        if(e && e.cancelable) e.preventDefault(); 
+        if(navMode==="hold") sendCommand('STOP'); 
+    }
     window.sendCommand = (c) => { set(ref(db, 'command'), c); logEvent(`CMD: ${c}`); }
 
     window.connectCams = (passedUrl = null) => {
@@ -753,15 +770,23 @@
     }
     
     function initCharts(data) {
-        const labels = data.map(l => l.trip || l.id);
+        const labels = data.map((l, i) => "TRIP " + (i+1));
         const spd = data.map(l => parseFloat(l.speed));
         const vert = data.map(l => parseFloat(l.vert_rms));
         const lat = data.map(l => parseFloat(l.lat_rms));
         const comf = data.map(l => parseFloat(l.comfort));
 
-        const cfg = (lbl, col, d) => ({
+        const getAvg = arr => arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length) : 0;
+
+        const cfg = (lbl, col, d, avgVal) => ({
             type: 'line',
-            data: { labels: labels, datasets: [{ label: lbl, borderColor: col, borderWidth: 2, backgroundColor: col+'33', fill:true, data: d }] },
+            data: { 
+                labels: labels, 
+                datasets: [
+                    { label: lbl, borderColor: col, borderWidth: 2, backgroundColor: col+'33', fill:true, data: d },
+                    { label: 'AVG', borderColor: '#ffffff', borderWidth: 1, borderDash: [5, 5], pointRadius: 0, fill: false, data: Array(d.length).fill(avgVal) }
+                ] 
+            },
             options: { scales: { x: { display: false }, y: { grid: { color: '#333' } } }, plugins: { legend: { labels: { color: 'white' } } }, animation: { duration: 2000 } }
         });
         
@@ -771,10 +796,21 @@
         if(charts.c4) charts.c4.destroy();
 
         if(document.getElementById('c1')) {
-            charts.c1 = new Chart(document.getElementById('c1').getContext('2d'), cfg('SPEED (m/s)', '#00f0ff', spd));
-            charts.c2 = new Chart(document.getElementById('c2').getContext('2d'), cfg('VERT RMS', '#05ffa1', vert));
-            charts.c3 = new Chart(document.getElementById('c3').getContext('2d'), cfg('LAT RMS', '#ff5e00', lat));
-            charts.c4 = new Chart(document.getElementById('c4').getContext('2d'), cfg('COMFORT', '#fcee0a', comf));
+            const avgSpd = getAvg(spd);
+            document.getElementById('avg-c1').innerText = "AVG: " + avgSpd.toFixed(2);
+            charts.c1 = new Chart(document.getElementById('c1').getContext('2d'), cfg('SPEED (m/s)', '#00f0ff', spd, avgSpd));
+            
+            const avgVert = getAvg(vert);
+            document.getElementById('avg-c2').innerText = "AVG: " + avgVert.toFixed(2);
+            charts.c2 = new Chart(document.getElementById('c2').getContext('2d'), cfg('VERT RMS', '#05ffa1', vert, avgVert));
+            
+            const avgLat = getAvg(lat);
+            document.getElementById('avg-c3').innerText = "AVG: " + avgLat.toFixed(2);
+            charts.c3 = new Chart(document.getElementById('c3').getContext('2d'), cfg('LAT RMS', '#ff5e00', lat, avgLat));
+            
+            const avgComf = getAvg(comf);
+            document.getElementById('avg-c4').innerText = "AVG: " + avgComf.toFixed(2);
+            charts.c4 = new Chart(document.getElementById('c4').getContext('2d'), cfg('COMFORT', '#fcee0a', comf, avgComf));
         }
     }
 
@@ -834,7 +870,7 @@
 
     <!-- SPEED & SLIDER -->
     <div class="panel speed-panel">
-      <div class="panel-header"><span>SPEEDOMETER </span><span>M/S</span></div>
+      <div class="panel-header"><span>SPEED CONTROL</span><span>M/S</span></div>
       
       <!-- DIGITAL DISPLAY REPLACEMENT -->
       <div class="digital-speed-container">
@@ -873,9 +909,9 @@
           <div class="data-row"><span>TRACK COMFORT LEVEL <button class="info-btn" onclick="document.getElementById('isoModal').style.display='flex'">i</button></span> <span id="vib-val" class="val" style="color:var(--cyber-yellow);">0.000 m/s²</span></div>
           <div class="data-row"><span>VERTICAL MOVEMENT RMS</span> <span id="vert-val" class="val" style="color:var(--cyber-green);">0.00 mm/s²</span></div>
           <div class="data-row"><span>LATERAL MOVEMENT RMS</span> <span id="lat-val" class="val" style="color:var(--cyber-orange);">0.00 mm/s²</span></div>
-          <div class="data-row"><span>AUTO DISTANCE</span> <span id="dist-val" class="val">MANUAL</span></div>
+          <div class="data-row"><span>CONTROL MODE</span> <span id="dist-val" class="val">MANUAL</span></div>
           <div class="data-row"><span>DISTANCE TO RAIV</span> <span id="user-dist" class="val">LOCATING...</span></div>
-          <div class="data-row"><span>STATUS</span> <span id="status-txt" class="val" style="color:lime;">STANDBY</span></div>
+          <div class="data-row"><span>RAIV STATUS</span> <span id="status-txt" class="val" style="color:lime;">STANDBY</span></div>
       </div>
     </div>
     
@@ -890,8 +926,7 @@
       <div class="nav-panel">
         <div class="nav-row"><label>NAV MODE:</label><select id="move-mode" onchange="updateNavMode()"><option value="hold">AUTO HOLD (MANUAL)</option><option value="meters" selected>METERS (AUTO)</option><option value="km">KILOMETERS (AUTO)</option></select></div>
         <div class="nav-row slider-container" id="slider-cont"><label>DIST:</label><input type="range" id="dist-slider" oninput="updateDist(this.value)"><div id="slider-val" class="slider-val">0.5 m</div></div>
-        <button class="btn-config" onclick="toggleCamConfig()">CONFIGURE LINK +</button>
-        <div id="cam-config-area"><input type="text" id="cam-url" placeholder="Paste Cloudflare URL..."><button onclick="connectCams()" style="width:100%; margin-top:5px; background:var(--cyber-blue); border:none; color:black; font-weight:bold; cursor:pointer;">CONNECT</button></div>
+        <!-- Removed Configure Link -->
       </div>
       <div class="control-bar">
         <button class="btn btn-fwd" onmousedown="handlePress('FORWARD', event)" onmouseup="handleRelease(event)" ontouchstart="handlePress('FORWARD', event)" ontouchend="handleRelease(event)" onmouseleave="handleRelease(event)" ontouchcancel="handleRelease(event)">FORWARD</button>
@@ -929,7 +964,7 @@
                     <div class="mag-section-title">HALL SENSORS [MAGNETIC FLUX]</div>
                     <!-- Hall 1 -->
                     <div class="mag-row">
-                        <span>SENSOR 01 (LEFT TRACK):</span>
+                        <span>SENSOR 01 (L):</span>
                         <div style="display:flex; align-items:center; gap:5px;">
                             <span id="h1-val" class="mag-val">0</span> <span style="font-size:9px; color:#666;"> mG RAW</span>
                             <div id="h1-led" style="width:8px; height:8px; border-radius:50%; background:#333; border:1px solid #555;"></div> <span style="font-size:9px;">TRIG</span>
@@ -937,7 +972,7 @@
                     </div>
                     <!-- Hall 2 -->
                     <div class="mag-row">
-                        <span>SENSOR 02 (RIGHT TRACK):</span>
+                        <span>SENSOR 02 (R):</span>
                         <div style="display:flex; align-items:center; gap:5px;">
                             <span id="h2-val" class="mag-val">0</span> <span style="font-size:9px; color:#666;"> mG RAW</span>
                             <div id="h2-led" style="width:8px; height:8px; border-radius:50%; background:#333; border:1px solid #555;"></div> <span style="font-size:9px;">TRIG</span>
@@ -952,16 +987,15 @@
   <!-- MODALS (Login, Maint, Data, ISO) -->
   <div id="loginModal" class="modal"><div class="login-box"><h2 style="color:var(--cyber-red);">AUTHORIZATION</h2><input type="text" id="user" class="login-input" placeholder="USERNAME"><input type="password" id="pass" class="login-input" placeholder="PASSWORD"><button class="login-btn" onclick="performLogin()">UNLOCK</button></div></div>
   
-  <div id="maintModal" class="modal"><div class="modal-box" style="max-width:400px;"><div style="display:flex; justify-content:space-between;"><h3 style="color:var(--cyber-blue);">SYSTEM MAINTENANCE</h3><button onclick="closeModal('maintModal')" class="close-btn">X</button></div><p style="font-size:12px; color:#aaa;">CAMERA CONFIGURATION LINK</p><input type="text" id="cam-url" placeholder="Paste Cloudflare URL..." style="width:100%; padding:10px; background:#222; border:1px solid #444; color:white;"><button onclick="connectCams(); closeModal('maintModal');" style="width:100%; margin-top:10px; background:var(--cyber-green); padding:10px; border:none; font-weight:bold; cursor:pointer;">UPDATE LINK</button></div></div>
+  <div id="maintModal" class="modal"><div class="modal-content" style="max-width:400px; height:auto;"><h3 style="color:var(--cyber-blue);">MAINTENANCE</h3><input type="text" id="cam-url" placeholder="Paste Cloudflare URL..." style="width:100%; padding:10px; background:#222; border:1px solid #444; color:white;"><button onclick="connectCams(); closeModal('maintModal');" style="width:100%; margin-top:10px; background:var(--cyber-green); padding:10px; border:none; font-weight:bold; cursor:pointer;">UPDATE LINK</button><button onclick="closeModal('maintModal')" style="margin-top:10px; width:100%; background:none; border:1px solid #444; color:#aaa; padding:5px; cursor:pointer;">CLOSE</button></div></div>
 
-  <div id="isoModal" class="modal"><div class="modal-box"><div style="display:flex; justify-content:space-between;"><h3 style="color:var(--cyber-blue);">ISO 2631 COMFORT</h3><button onclick="closeModal('isoModal')" class="close-btn">X</button></div><table style="margin-top:10px; color:white;"><tr><th>RMS Acc</th><th>Comfort Level</th></tr><tr><td>< 0.315</td><td style="color:#0f0;">Not uncomfortable</td></tr><tr><td>0.315-0.63</td><td style="color:#af0;">A little uncomfortable</td></tr><tr><td>0.5-1.0</td><td style="color:#ff0;">Fairly uncomfortable</td></tr><tr><td>0.8-1.6</td><td style="color:#fa0;">Uncomfortable</td></tr><tr><td>1.25-2.5</td><td style="color:#f50;">Very uncomfortable</td></tr><tr><td>> 2.0</td><td style="color:#f00;">Extremely uncomfortable</td></tr></table></div></div>
+  <div id="isoModal" class="modal"><div class="modal-content" style="max-width:500px; height:auto;"><h3 style="color:var(--cyber-blue);">ISO 2631 COMFORT</h3><button onclick="closeModal('isoModal')" class="close-btn" style="float:right; background:none; border:none; color:white; font-size:20px;">X</button><table style="margin-top:10px; color:white;"><tr><th>RMS Acc</th><th>Comfort Level</th></tr><tr><td>< 0.315</td><td style="color:#0f0;">Not uncomfortable</td></tr><tr><td>0.315-0.63</td><td style="color:#af0;">A little uncomfortable</td></tr><tr><td>0.5-1.0</td><td style="color:#ff0;">Fairly uncomfortable</td></tr><tr><td>0.8-1.6</td><td style="color:#fa0;">Uncomfortable</td></tr><tr><td>1.25-2.5</td><td style="color:#f50;">Very uncomfortable</td></tr><tr><td>> 2.0</td><td style="color:#f00;">Extremely uncomfortable</td></tr></table></div></div>
 
-  <!-- DATA LOGS -->
   <div id="dataModal" class="modal">
     <div class="modal-content">
         <div style="display:flex; justify-content:space-between;">
             <h2 style="color:var(--cyber-green);">MISSION DATA LOGS</h2>
-            <button onclick="closeModal('dataModal')" class="close-btn" style="font-size:24px; border:none;">X</button>
+            <button onclick="closeModal('dataModal')" class="close-btn" style="font-size:24px; border:none; background:none; color:white; cursor:pointer;">X</button>
         </div>
         <div class="table-container">
             <table>
@@ -973,10 +1007,10 @@
         </div>
         
         <div class="charts-grid" style="margin-top:20px;">
-            <div class="chart-box"><div class="panel-header">SPEED</div><canvas id="c1"></canvas></div>
-            <div class="chart-box"><div class="panel-header">VERT RMS</div><canvas id="c2"></canvas></div>
-            <div class="chart-box"><div class="panel-header">LAT RMS</div><canvas id="c3"></canvas></div>
-            <div class="chart-box"><div class="panel-header">COMFORT</div><canvas id="c4"></canvas></div>
+            <div class="chart-box"><div class="panel-header">SPEED <span id="avg-c1" style="float:right; font-size:10px; color:white;"></span></div><canvas id="c1"></canvas></div>
+            <div class="chart-box"><div class="panel-header">VERT RMS <span id="avg-c2" style="float:right; font-size:10px; color:white;"></span></div><canvas id="c2"></canvas></div>
+            <div class="chart-box"><div class="panel-header">LAT RMS <span id="avg-c3" style="float:right; font-size:10px; color:white;"></span></div><canvas id="c3"></canvas></div>
+            <div class="chart-box"><div class="panel-header">COMFORT <span id="avg-c4" style="float:right; font-size:10px; color:white;"></span></div><canvas id="c4"></canvas></div>
         </div>
     </div>
   </div>
