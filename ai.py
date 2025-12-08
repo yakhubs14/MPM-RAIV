@@ -15,7 +15,7 @@ import queue
 CAM_INDICES = [0, 1, 2, 3] 
 PORT = 5000
 
-# SAFE SCORE THRESHOLDS (LOWER = BLURRIER/CLOSER)
+# SAFE SCORE THRESHOLDS
 SAFE_SCORE_CAM_2 = 300 # Back View
 SAFE_SCORE_CAM_3 = 500 # Front View
 
@@ -34,12 +34,11 @@ cmd_queue = queue.Queue()
 vehicle_status = "STANDBY" 
 last_save_time = 0
 
-# GLOBAL FRAME BUFFER (Pre-encoded)
+# GLOBAL FRAME BUFFER
 global_frames = [None, None, None, None]
 
-# Global Safe Scores for periodic printing
+# Global Safe Scores
 current_safe_scores = {1: 0, 2: 0}
-last_print_time = 0
 
 if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
@@ -51,9 +50,8 @@ def network_worker():
         cmd = cmd_queue.get()
         if cmd is None: break
         try:
-            # Ultra-fast timeout to prevent blocking
+            # Ultra-fast timeout. We don't print "SENT" anymore.
             requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.2)
-            print(f"\n[⚠️ ALERT] STOP COMMAND SENT: {cmd}")
         except: pass
         cmd_queue.task_done()
 
@@ -72,10 +70,11 @@ class CameraThread(threading.Thread):
         
         if self.cap.isOpened():
             self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-            # LOWEST RESOLUTION FOR MAX SPEED
+            # 320x240 is standard for high speed analysis
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-            self.cap.set(cv2.CAP_PROP_FPS, 30)
+            # 20 FPS is smooth enough for video but saves CPU
+            self.cap.set(cv2.CAP_PROP_FPS, 20)
     
     def run(self):
         global global_frames, last_save_time, current_safe_scores
@@ -83,9 +82,7 @@ class CameraThread(threading.Thread):
         
         # Set specific threshold based on camera index
         my_threshold = SAFE_SCORE_CAM_2 if self.index == 1 else SAFE_SCORE_CAM_3
-        
-        # Frame Throttling: Only process every Nth frame to save CPU
-        frame_skip = 0
+        cam_label = "Back" if self.index == 1 else "Front"
         
         while True:
             if not self.cap.isOpened():
@@ -96,16 +93,6 @@ class CameraThread(threading.Thread):
             success, frame = self.cap.read()
             if not success:
                 time.sleep(0.1)
-                continue
-
-            # Skip processing for smoothness (process 1 out of 2 frames)
-            frame_skip += 1
-            if frame_skip % 2 != 0:
-                # Still update buffer for smooth view, but skip heavy math
-                try:
-                    ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
-                    if ret: global_frames[self.index] = buffer.tobytes()
-                except: pass
                 continue
 
             # --- OBSTACLE DETECTION (NO DRAWING) ---
@@ -134,11 +121,9 @@ class CameraThread(threading.Thread):
                 else:
                     obstruction_counter = 0
 
-                # Fast Trigger: 2 frames
+                # Trigger Stop
                 if obstruction_counter > 2:
-                    cam_name = "BACK" if self.index == 1 else "FRONT"
-                    print(f"\n[⛔ STOP] {cam_name} CAM OBSTRUCTION DETECTED (Score: {int(blur)} < {my_threshold}) -> STOPPING VEHICLE")
-                    # Send STOP every time loop runs (continuous safety)
+                    print(f"\n[⛔ STOP] {cam_label} cam obstruction stopped the vehicle")
                     cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
 
             # --- IMAGE CAPTURE ---
@@ -149,11 +134,10 @@ class CameraThread(threading.Thread):
                         if self.index == 0 or (self.index == 3 and now - last_save_time > 1.1):
                             last_save_time = now
                             self.save_img(frame)
-                            # print(f"📸 SNAPSHOT [CAM {self.index}]") 
 
             # --- ENCODE & UPDATE BUFFER (PURE VIDEO) ---
             try:
-                # Quality 30 is fast and good enough for view
+                # Quality 30 is fast
                 ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
                 if ret:
                     global_frames[self.index] = buffer.tobytes()
@@ -181,15 +165,15 @@ def gen(cam_idx):
         frame = global_frames[cam_idx]
         if frame:
             yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-            # 30 FPS Cap
-            time.sleep(0.03) 
+            # 20 FPS cap for streaming (matches capture)
+            time.sleep(0.05) 
         else:
             time.sleep(0.1)
 
 # --- MONITOR ---
 def firebase_monitor():
     global vehicle_status
-    print("--- FIREBASE MONITOR STARTED ---")
+    # print("--- FIREBASE MONITOR STARTED ---")
     while True:
         try:
             r = requests.get(TELEMETRY_ENDPOINT, timeout=1)
@@ -200,14 +184,11 @@ def firebase_monitor():
             time.sleep(1.0) 
         except: time.sleep(2.0)
 
-# --- STATUS PRINTER (NEW) ---
+# --- STATUS PRINTER ---
 def status_printer():
-    global last_print_time
     print("--- STATUS PRINTER STARTED ---")
     while True:
-        time.sleep(2.0) # Print every 2 seconds
-        # Print Safe Scores on one line
-        # Using \r to overwrite line for cleaner terminal (optional, standard print is safer for logs)
+        time.sleep(2.0) 
         print(f"📊 STATUS: [CAM 1 (BACK) Safe Score: {current_safe_scores[1]}] | [CAM 2 (FRONT) Safe Score: {current_safe_scores[2]}]")
 
 # --- ROUTES ---
@@ -253,10 +234,9 @@ if __name__ == '__main__':
     t_fb.daemon = True
     t_fb.start()
     
-    # Start the Status Printer
     t_print = threading.Thread(target=status_printer)
     t_print.daemon = True
     t_print.start()
 
-    print(f"--- SYSTEM ACTIVE (TERMINAL OUTPUT ONLY) ---")
+    print(f"--- SYSTEM ACTIVE (LOGGING ONLY) ---")
     app.run(host='0.0.0.0', port=PORT, threaded=True)
