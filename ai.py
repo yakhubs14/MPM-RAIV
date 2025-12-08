@@ -9,6 +9,7 @@ import sys
 import os
 import numpy as np
 from datetime import datetime
+import queue
 
 # --- CONFIGURATION ---
 CAM_1_INDEX = 0 # Right Track
@@ -17,9 +18,7 @@ CAM_3_INDEX = 2 # Front View
 CAM_4_INDEX = 3 # Left Track
 
 PORT = 5000
-
-# ADJUSTABLE SAFE SCORE
-SAFE_SCORE_THRESHOLD = 300 # Below this = STOP
+SAFE_SCORE_THRESHOLD = 300 
 
 # FIREBASE CONFIG
 FIREBASE_BASE_URL = "https://mpm-raiv-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -30,6 +29,7 @@ TELEMETRY_ENDPOINT = f"{FIREBASE_BASE_URL}/telemetry.json"
 SAVE_DIR = r"C:\Users\Shukri\Documents\RAIV\Saved Pictures"
 
 app = Flask(__name__)
+cmd_queue = queue.Queue() # Non-blocking command queue
 
 # --- GLOBAL STATE ---
 vehicle_status = "STANDBY" 
@@ -41,22 +41,37 @@ if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
     except: pass
 
+# --- BACKGROUND WORKER FOR NETWORK CALLS ---
+def network_worker():
+    while True:
+        cmd = cmd_queue.get()
+        if cmd is None: break
+        try:
+            # print(f"Sending: {cmd}")
+            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=1)
+        except: pass
+        cmd_queue.task_done()
+
+# Start worker thread
+t_worker = threading.Thread(target=network_worker)
+t_worker.daemon = True
+t_worker.start()
+
 # --- CAMERA HANDLING ---
 class VideoCamera(object):
     def __init__(self, index, role="VIEW"):
-        self.video = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+        # SWITCH TO MSMF FOR STABILITY ON WINDOWS WITH MULTI-CAM
+        self.video = cv2.VideoCapture(index, cv2.CAP_MSMF)
         self.role = role 
         self.index = index
         self.is_obstacle = False
         
         if self.video.isOpened():
-            # RESOLUTION: 640x480 for clearer text, but we optimize elsewhere for speed
+            # Force MJPG to save USB Bandwidth
+            self.video.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
             self.video.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self.video.set(cv2.CAP_PROP_FPS, 30)
-            # Important: Set buffer size to 1 to reduce latency
-            self.video.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            self.video.set(cv2.CAP_PROP_AUTOFOCUS, 0) 
         else:
             print(f"Warning: Camera {index} failed to open.")
     
@@ -65,29 +80,22 @@ class VideoCamera(object):
     
     def get_frame_and_process(self, cam_id):
         if not self.video.isOpened(): 
-            self.video.open(self.index, cv2.CAP_DSHOW)
+            # Gentle Reconnect
+            time.sleep(2) 
+            self.video.open(self.index, cv2.CAP_MSMF)
             if not self.video.isOpened(): return None
 
-        # FLUSH BUFFER: Read twice to ensure we get the absolute latest frame
-        # This is the key to fixing the 5-second delay!
-        self.video.grab() 
+        self.video.grab() # Flush buffer
         success, image = self.video.read()
         if not success: return None
         
         # --- 1. OBSTRUCTION DETECTION ---
         if self.role == "DETECT":
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            
-            # LAPLACIAN VARIANCE (Sharpness/Blur)
-            # High = Sharp/Far. Low = Blurry/Near.
             blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
             mean_brightness = np.mean(gray)
             
-            # SAFE SCORE DISPLAY
-            score_text = f"SAFE SCORE: {int(blur_score)}"
-            
             # Logic: If Score < Threshold, it's too blurry/close -> STOP
-            # Also check brightness to catch covered lens (black screen)
             is_blocked = (blur_score < SAFE_SCORE_THRESHOLD) or (mean_brightness < 10)
 
             if is_blocked: 
@@ -96,27 +104,24 @@ class VideoCamera(object):
                 obstruction_counters[self.index] = 0
                 self.is_obstacle = False
 
-            # Fast Trigger: 2 frames is enough if score drops drastically
-            if obstruction_counters[self.index] > 2:
+            # Fast Trigger: 3 frames
+            if obstruction_counters[self.index] > 3:
                 self.is_obstacle = True
                 trigger_emergency_stop(cam_id)
                 
-                # VISUAL ALERT - BIG & BOLD
+                # VISUAL ALERT
                 cv2.rectangle(image, (0,0), (640,480), (0,0,255), 20)
-                # White text with black border for readability
-                cv2.putText(image, "OBSTACLE DETECTED", (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,0,0), 8) # Outline
-                cv2.putText(image, "OBSTACLE DETECTED", (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,0,255), 3) # Text
+                # THICK BORDER TEXT FOR VISIBILITY
+                cv2.putText(image, "OBSTACLE DETECTED", (50, 180), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0,0,0), 8) 
+                cv2.putText(image, "OBSTACLE DETECTED", (50, 180), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0,0,255), 3) 
                 
-                cv2.putText(image, "VEHICLE STOPPED", (80, 280), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0,0,0), 8)
-                cv2.putText(image, "VEHICLE STOPPED", (80, 280), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0,0,255), 3)
-                
-                # Show bad score
-                cv2.putText(image, f"SCORE: {int(blur_score)} (LOW)", (50, 400), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,255,255), 2)
+                cv2.putText(image, "VEHICLE STOPPED", (80, 240), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,0), 8)
+                cv2.putText(image, "VEHICLE STOPPED", (80, 240), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 3)
             else:
                 reset_stop_flag() 
-                # Show Safe Status - Clear Text
-                cv2.putText(image, score_text, (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,0), 6) # Outline
-                cv2.putText(image, score_text, (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2) # Text
+                score_text = f"SAFE (Score: {int(blur_score)})"
+                cv2.putText(image, score_text, (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,0,0), 4)
+                cv2.putText(image, score_text, (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
         
         # --- 2. IMAGE CAPTURE ---
         elif self.role == "CAPTURE":
@@ -131,7 +136,6 @@ class VideoCamera(object):
         if not self.is_obstacle:
             cv2.putText(image, f"CAM {cam_id}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
         
-        # JPEG Quality 40 for speed vs quality balance
         ret, jpeg = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 40])
         return jpeg.tobytes()
 
@@ -139,13 +143,10 @@ class VideoCamera(object):
 def trigger_emergency_stop(cam_id):
     global stop_command_sent
     if not stop_command_sent:
-        print(f"!!! STOP CMD: OBSTACLE ON CAM {cam_id} !!!")
-        try:
-            # Use unique timestamp to force update
-            cmd = f"STOP_EMERGENCY_{int(time.time())}"
-            requests.put(COMMAND_ENDPOINT, json=cmd)
-            stop_command_sent = True
-        except: pass
+        print(f"!!! STOP: OBSTACLE CAM {cam_id} !!!")
+        cmd = f"STOP_EMERGENCY_{int(time.time())}"
+        cmd_queue.put(cmd) # Non-blocking send
+        stop_command_sent = True
 
 def reset_stop_flag():
     global stop_command_sent
@@ -173,14 +174,13 @@ def gen(cam_idx):
             if cameras[cam_idx] is None:
                 try: cameras[cam_idx] = VideoCamera(indices[cam_idx], roles[cam_idx])
                 except: pass
-                time.sleep(0.5)
+                time.sleep(2.0) # Longer wait on fail
                 continue
             
             frame = cameras[cam_idx].get_frame_and_process(cam_idx + 1)
             
             if frame: 
                 yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-                # NO SLEEP HERE - Run as fast as camera allows
             else:
                 cameras[cam_idx] = None 
                 time.sleep(0.5)
@@ -236,10 +236,10 @@ def start_tunnel():
                 break
         except:
             time.sleep(1)
-            print(f"...waiting for server ({i+1}/{max_retries})")
+            print(f"...waiting ({i+1}/{max_retries})")
     
     if not server_ready:
-        print("❌ ERROR: Flask Server failed to start. Tunnel aborted.")
+        print("❌ ERROR: Flask Server failed. Tunnel aborted.")
         return
 
     print("--- STARTING CLOUDFLARED ---")
