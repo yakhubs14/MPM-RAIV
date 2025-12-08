@@ -17,7 +17,7 @@ PORT = 5000
 
 # SAFE SCORE THRESHOLDS (LOWER = BLURRIER/CLOSER)
 SAFE_SCORE_CAM_2 = 300 # Back View
-SAFE_SCORE_CAM_3 = 700 # Front View
+SAFE_SCORE_CAM_3 = 500 # Front View
 
 # FIREBASE CONFIG
 FIREBASE_BASE_URL = "https://mpm-raiv-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -37,6 +37,10 @@ last_save_time = 0
 # GLOBAL FRAME BUFFER (Pre-encoded)
 global_frames = [None, None, None, None]
 
+# Global Safe Scores for periodic printing
+current_safe_scores = {1: 0, 2: 0}
+last_print_time = 0
+
 if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
     except: pass
@@ -49,7 +53,7 @@ def network_worker():
         try:
             # Ultra-fast timeout to prevent blocking
             requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.2)
-            print(f"📡 SENT: {cmd}")
+            print(f"\n[⚠️ ALERT] STOP COMMAND SENT: {cmd}")
         except: pass
         cmd_queue.task_done()
 
@@ -74,11 +78,14 @@ class CameraThread(threading.Thread):
             self.cap.set(cv2.CAP_PROP_FPS, 30)
     
     def run(self):
-        global global_frames, last_save_time
+        global global_frames, last_save_time, current_safe_scores
         obstruction_counter = 0
         
         # Set specific threshold based on camera index
         my_threshold = SAFE_SCORE_CAM_2 if self.index == 1 else SAFE_SCORE_CAM_3
+        
+        # Frame Throttling: Only process every Nth frame to save CPU
+        frame_skip = 0
         
         while True:
             if not self.cap.isOpened():
@@ -91,6 +98,16 @@ class CameraThread(threading.Thread):
                 time.sleep(0.1)
                 continue
 
+            # Skip processing for smoothness (process 1 out of 2 frames)
+            frame_skip += 1
+            if frame_skip % 2 != 0:
+                # Still update buffer for smooth view, but skip heavy math
+                try:
+                    ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
+                    if ret: global_frames[self.index] = buffer.tobytes()
+                except: pass
+                continue
+
             # --- OBSTACLE DETECTION (NO DRAWING) ---
             if self.role == "DETECT":
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -98,6 +115,9 @@ class CameraThread(threading.Thread):
                 # 1. Blur Check
                 blur = cv2.Laplacian(gray, cv2.CV_64F).var()
                 
+                # Update global score for printing
+                current_safe_scores[self.index] = int(blur)
+
                 # 2. Large Object Check (Contour Area)
                 _, thresh = cv2.threshold(gray, 60, 255, cv2.THRESH_BINARY_INV)
                 contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -116,13 +136,10 @@ class CameraThread(threading.Thread):
 
                 # Fast Trigger: 2 frames
                 if obstruction_counter > 2:
-                    print(f"⚠️ OBSTACLE DETECTED [CAM {self.index}] (Score: {int(blur)} < {my_threshold}) -> STOPPING")
+                    cam_name = "BACK" if self.index == 1 else "FRONT"
+                    print(f"\n[⛔ STOP] {cam_name} CAM OBSTRUCTION DETECTED (Score: {int(blur)} < {my_threshold}) -> STOPPING VEHICLE")
                     # Send STOP every time loop runs (continuous safety)
                     cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
-                else:
-                     # Always print safe score
-                     print(f"Cam {self.index} Safe Score: {int(blur)}")
-
 
             # --- IMAGE CAPTURE ---
             elif self.role == "CAPTURE":
@@ -132,7 +149,7 @@ class CameraThread(threading.Thread):
                         if self.index == 0 or (self.index == 3 and now - last_save_time > 1.1):
                             last_save_time = now
                             self.save_img(frame)
-                            print(f"📸 SNAPSHOT [CAM {self.index}]")
+                            # print(f"📸 SNAPSHOT [CAM {self.index}]") 
 
             # --- ENCODE & UPDATE BUFFER (PURE VIDEO) ---
             try:
@@ -183,6 +200,16 @@ def firebase_monitor():
             time.sleep(1.0) 
         except: time.sleep(2.0)
 
+# --- STATUS PRINTER (NEW) ---
+def status_printer():
+    global last_print_time
+    print("--- STATUS PRINTER STARTED ---")
+    while True:
+        time.sleep(2.0) # Print every 2 seconds
+        # Print Safe Scores on one line
+        # Using \r to overwrite line for cleaner terminal (optional, standard print is safer for logs)
+        print(f"📊 STATUS: [CAM 1 (BACK) Safe Score: {current_safe_scores[1]}] | [CAM 2 (FRONT) Safe Score: {current_safe_scores[2]}]")
+
 # --- ROUTES ---
 @app.route('/')
 def index(): return "RAIV VISION SYSTEM ONLINE (HEADLESS MODE)"
@@ -225,6 +252,11 @@ if __name__ == '__main__':
     t_fb = threading.Thread(target=firebase_monitor)
     t_fb.daemon = True
     t_fb.start()
+    
+    # Start the Status Printer
+    t_print = threading.Thread(target=status_printer)
+    t_print.daemon = True
+    t_print.start()
 
     print(f"--- SYSTEM ACTIVE (TERMINAL OUTPUT ONLY) ---")
     app.run(host='0.0.0.0', port=PORT, threaded=True)
