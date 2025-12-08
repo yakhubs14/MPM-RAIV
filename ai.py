@@ -51,8 +51,6 @@ class VideoCamera(object):
             self.video.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
             self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
             self.video.set(cv2.CAP_PROP_FPS, 30) # Request 30 FPS
-            
-            # Disable Auto-Focus if possible (prevents hunting)
             self.video.set(cv2.CAP_PROP_AUTOFOCUS, 0) 
         else:
             print(f"Warning: Camera {index} failed to open.")
@@ -70,21 +68,12 @@ class VideoCamera(object):
         
         # --- 1. OBSTRUCTION DETECTION (Front/Rear Cams) ---
         if self.role == "DETECT":
-            # Convert to grayscale
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            
-            # LAPLACIAN VARIANCE (Blur Detection)
-            # Normal View (Tracks/Background) = High Variance (Sharp edges)
-            # Object at 1-2cm (Macro focus) = Extremely Low Variance (Blurry/Flat)
             blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
             mean_brightness = np.mean(gray)
 
             # THRESHOLDS (Tuned for "Very Near")
-            # Blur Score < 100 means image is very soft/blurry (Object close)
-            # Brightness > 30 ensures we don't stop just because it's night time
             is_blocked = (blur_score < 100) and (mean_brightness > 30)
-            
-            # Additional Check: If it's pitch black (covered hand), stop too
             if mean_brightness < 10: is_blocked = True
 
             if is_blocked: 
@@ -93,18 +82,14 @@ class VideoCamera(object):
                 obstruction_counters[self.index] = 0
                 self.is_obstacle = False
 
-            # FAST REACTION: 3 Consecutive frames (~100ms) triggers stop
             if obstruction_counters[self.index] > 3:
                 self.is_obstacle = True
                 trigger_emergency_stop(cam_id)
-                
-                # Visual Alert
                 cv2.rectangle(image, (0,0), (320,240), (0,0,255), 10)
                 cv2.putText(image, "OBSTACLE NEAR!", (40, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
                 cv2.putText(image, "VEHICLE STOPPED", (50, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             else:
                 reset_stop_flag() 
-                # Show Safe Status
                 cv2.putText(image, f"SAFE (Score: {int(blur_score)})", (10, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         
         # --- 2. IMAGE CAPTURE ---
@@ -120,8 +105,6 @@ class VideoCamera(object):
         if not self.is_obstacle:
             cv2.putText(image, f"CAM {cam_id}", (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
         
-        # Ultra Fast Compression
-        # Quality 25 is lower quality but MUCH smoother stream
         ret, jpeg = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 25])
         return jpeg.tobytes()
 
@@ -169,10 +152,8 @@ def gen(cam_idx):
             
             if frame: 
                 yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-                # REMOVED ARTIFICIAL SLEEP for max smoothness
-                # Flask/CV2 will naturally limit to processing speed (~30fps)
             else:
-                cameras[cam_idx] = None # Reset on fail
+                cameras[cam_idx] = None 
                 time.sleep(0.5)
 
         except GeneratorExit: return
@@ -189,7 +170,7 @@ def firebase_monitor():
                 data = r.json()
                 if data and "status" in data:
                     vehicle_status = data["status"]
-            time.sleep(0.5) # Check faster (500ms)
+            time.sleep(0.5) 
         except: time.sleep(1.0)
 
 # --- ROUTES ---
@@ -205,21 +186,59 @@ def video_feed3(): return Response(gen(2), mimetype='multipart/x-mixed-replace; 
 @app.route('/video4')
 def video_feed4(): return Response(gen(3), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-# --- STARTUP ---
+# --- STARTUP LOGIC ---
+def clean_zombies():
+    print("--- CLEANING PREVIOUS TUNNELS ---")
+    try:
+        # Windows command to kill cloudflared
+        subprocess.run("taskkill /F /IM cloudflared.exe", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except: pass
+
 def start_tunnel():
-    print("--- STARTING CLOUD TUNNEL ---")
-    cmd = ['cloudflared', 'tunnel', '--url', f'http://localhost:{PORT}']
+    print("--- WAITING FOR FLASK SERVER ---")
+    
+    # 1. Wait for Localhost 5000 to be live
+    max_retries = 20
+    server_ready = False
+    
+    for i in range(max_retries):
+        try:
+            # Check if local server is up
+            r = requests.get(f"http://127.0.0.1:{PORT}")
+            if r.status_code == 200:
+                print(f"✅ FLASK SERVER DETECTED (Attempt {i+1})")
+                server_ready = True
+                break
+        except:
+            time.sleep(1)
+            print(f"...waiting for server ({i+1}/{max_retries})")
+    
+    if not server_ready:
+        print("❌ ERROR: Flask Server failed to start. Tunnel aborted.")
+        return
+
+    # 2. Start Cloudflared
+    print("--- STARTING CLOUDFLARED ---")
+    cmd = ['cloudflared', 'tunnel', '--url', f'http://127.0.0.1:{PORT}']
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    
     for line in iter(process.stdout.readline, ''):
         match = re.search(r'https://[a-zA-Z0-9-]+\.trycloudflare\.com', line)
         if match:
             url = match.group(0)
             print(f"\n✅ TUNNEL: {url}")
-            try: requests.put(URL_ENDPOINT, json=url)
-            except: pass
+            try: 
+                r = requests.put(URL_ENDPOINT, json=url)
+                if r.status_code == 200: print("✅ FIREBASE UPDATED")
+                else: print(f"❌ FIREBASE ERROR: {r.status_code}")
+            except Exception as e: 
+                print(f"❌ UPLOAD FAILED: {e}")
             break 
 
 if __name__ == '__main__':
+    clean_zombies() # Kill old tunnels
+    
+    # Start Tunnel Thread (Will wait for Flask)
     t_tunnel = threading.Thread(target=start_tunnel)
     t_tunnel.daemon = True
     t_tunnel.start()
@@ -229,5 +248,5 @@ if __name__ == '__main__':
     t_fb.start()
 
     print(f"--- SYSTEM ACTIVE ---")
-    # Threaded=True is essential for parallel camera streams
+    # HOST 0.0.0.0 is CRITICAL for stability
     app.run(host='0.0.0.0', port=PORT, threaded=True)
