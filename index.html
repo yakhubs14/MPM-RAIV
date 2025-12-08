@@ -191,7 +191,7 @@
     .nav-row { display: flex; align-items: center; gap: 10px; color: var(--cyber-blue); font-weight: bold; font-size: 12px; }
     select { background: #050505; color: white; border: 1px solid var(--cyber-blue); padding: 8px; font-family: 'Oxanium'; font-size: 14px; flex: 1; outline: none; text-transform: uppercase; }
     
-    /* Removed old cam-config-area as requested */
+    /* Removed cam-config-area as requested */
     
     /* SLIDER */
     .slider-container { width: 100%; display: flex; align-items: center; gap: 10px; margin-top: 10px; transition: opacity 0.3s; }
@@ -488,6 +488,13 @@
     }
     window.updateDist = (v) => { sliderValue=v; document.getElementById('slider-val').innerText=v+(navMode==="meters"?" m":" km"); }
 
+    // FIXED: Appended unique timestamp to every command to ensure it's always new
+    window.sendCommand = (c) => { 
+        const uniqueCmd = c + "_" + Date.now();
+        set(ref(db, 'command'), uniqueCmd); 
+        logEvent(`CMD: ${c}`); 
+    }
+
     window.handlePress = (dir, e) => {
         if(e && e.cancelable) e.preventDefault();
         if (navMode === "hold") { 
@@ -506,7 +513,7 @@
         if(e && e.cancelable) e.preventDefault(); 
         if(navMode==="hold") sendCommand('STOP'); 
     }
-    window.sendCommand = (c) => { set(ref(db, 'command'), c); logEvent(`CMD: ${c}`); }
+    
 
     window.connectCams = (passedUrl = null) => {
         let url = passedUrl || document.getElementById('cam-url').value || DEFAULT_CAM_URL;
@@ -915,7 +922,7 @@
           <div class="data-row"><span>TRACK COMFORT LEVEL <button class="info-btn" onclick="document.getElementById('isoModal').style.display='flex'">i</button></span> <span id="vib-val" class="val" style="color:var(--cyber-yellow);">0.000 m/s²</span></div>
           <div class="data-row"><span>VERTICAL MOVEMENT RMS</span> <span id="vert-val" class="val" style="color:var(--cyber-green);">0.00 mm/s²</span></div>
           <div class="data-row"><span>LATERAL MOVEMENT RMS</span> <span id="lat-val" class="val" style="color:var(--cyber-orange);">0.00 mm/s²</span></div>
-          <div class="data-row"><span>CONTROL MODE</span> <span id="dist-val" class="val">MANUAL</span></div>
+          <div class="data-row"><span>AUTO DISTANCE</span> <span id="dist-val" class="val">MANUAL</span></div>
           <div class="data-row"><span>DISTANCE TO RAIV</span> <span id="user-dist" class="val">LOCATING...</span></div>
           <div class="data-row"><span>STATUS</span> <span id="status-txt" class="val" style="color:lime;">STANDBY</span></div>
       </div>
