@@ -17,7 +17,7 @@ PORT = 5000
 
 # SAFE SCORE THRESHOLDS (LOWER = BLURRIER/CLOSER)
 SAFE_SCORE_CAM_2 = 300 # Back View
-SAFE_SCORE_CAM_3 = 500 # Front View
+SAFE_SCORE_CAM_3 = 700 # Front View
 
 # FIREBASE CONFIG
 FIREBASE_BASE_URL = "https://mpm-raiv-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -119,6 +119,10 @@ class CameraThread(threading.Thread):
                     print(f"⚠️ OBSTACLE DETECTED [CAM {self.index}] (Score: {int(blur)} < {my_threshold}) -> STOPPING")
                     # Send STOP every time loop runs (continuous safety)
                     cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
+                else:
+                     # Always print safe score
+                     print(f"Cam {self.index} Safe Score: {int(blur)}")
+
 
             # --- IMAGE CAPTURE ---
             elif self.role == "CAPTURE":
