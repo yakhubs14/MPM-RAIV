@@ -11,8 +11,6 @@ import numpy as np
 from datetime import datetime
 
 # --- CONFIGURATION ---
-# Verify these indices match your USB ports!
-# Try swapping 0/1/2/3 if cams are swapped.
 CAM_1_INDEX = 0 # Right Track
 CAM_2_INDEX = 1 # Back View
 CAM_3_INDEX = 2 # Front View 
@@ -26,7 +24,6 @@ URL_ENDPOINT = f"{FIREBASE_BASE_URL}/cam_url.json"
 COMMAND_ENDPOINT = f"{FIREBASE_BASE_URL}/command.json"
 TELEMETRY_ENDPOINT = f"{FIREBASE_BASE_URL}/telemetry.json"
 
-# SAVE PATH
 SAVE_DIR = r"C:\Users\Shukri\Documents\RAIV\Saved Pictures"
 
 app = Flask(__name__)
@@ -35,8 +32,7 @@ app = Flask(__name__)
 vehicle_status = "STANDBY" 
 last_save_time = 0
 stop_command_sent = False
-# We track obstruction persistence to avoid false triggers
-obstruction_counters = {1: 0, 2: 0} # Cam 2 and 3
+obstruction_counters = {1: 0, 2: 0} 
 
 if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
@@ -45,17 +41,19 @@ if not os.path.exists(SAVE_DIR):
 # --- CAMERA HANDLING ---
 class VideoCamera(object):
     def __init__(self, index, role="VIEW"):
-        # Use CAP_DSHOW on Windows for faster init
         self.video = cv2.VideoCapture(index, cv2.CAP_DSHOW)
         self.role = role 
         self.index = index
         self.is_obstacle = False
         
         if self.video.isOpened():
-            # Lower resolution is critical for 4 cameras on one USB bus
+            # LOW RESOLUTION FOR MAX SPEED
             self.video.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
             self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-            self.video.set(cv2.CAP_PROP_FPS, 15)
+            self.video.set(cv2.CAP_PROP_FPS, 30) # Request 30 FPS
+            
+            # Disable Auto-Focus if possible (prevents hunting)
+            self.video.set(cv2.CAP_PROP_AUTOFOCUS, 0) 
         else:
             print(f"Warning: Camera {index} failed to open.")
     
@@ -64,7 +62,6 @@ class VideoCamera(object):
     
     def get_frame_and_process(self, cam_id):
         if not self.video.isOpened(): 
-            # Try to reconnect if failed previously
             self.video.open(self.index, cv2.CAP_DSHOW)
             if not self.video.isOpened(): return None
 
@@ -73,71 +70,60 @@ class VideoCamera(object):
         
         # --- 1. OBSTRUCTION DETECTION (Front/Rear Cams) ---
         if self.role == "DETECT":
-            # UPDATED ALGORITHM: EDGE DENSITY CHECK
-            # 1. Convert to Grayscale
+            # Convert to grayscale
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             
-            # 2. Detect Edges using Canny
-            # Objects 1-2cm away will be out of focus/blurry -> Low Edge Count
-            # Normal scene (tracks) has high detail -> High Edge Count
-            edges = cv2.Canny(gray, 50, 150)
-            
-            # 3. Calculate "Edge Density" (Percentage of white pixels)
-            total_pixels = image.shape[0] * image.shape[1]
-            edge_pixels = np.count_nonzero(edges)
-            density = (edge_pixels / total_pixels) * 100
-            
-            # 4. Brightness Check (Still useful for total darkness)
+            # LAPLACIAN VARIANCE (Blur Detection)
+            # Normal View (Tracks/Background) = High Variance (Sharp edges)
+            # Object at 1-2cm (Macro focus) = Extremely Low Variance (Blurry/Flat)
+            blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
             mean_brightness = np.mean(gray)
 
-            # THRESHOLD LOGIC:
-            # If density is VERY LOW (< 2%), it means the image is flat/blurry (Blocked)
-            # OR if it's pitch black (< 10 brightness)
-            is_blocked = (density < 2.0) or (mean_brightness < 10)
+            # THRESHOLDS (Tuned for "Very Near")
+            # Blur Score < 100 means image is very soft/blurry (Object close)
+            # Brightness > 30 ensures we don't stop just because it's night time
+            is_blocked = (blur_score < 100) and (mean_brightness > 30)
             
+            # Additional Check: If it's pitch black (covered hand), stop too
+            if mean_brightness < 10: is_blocked = True
+
             if is_blocked: 
                 obstruction_counters[self.index] += 1
             else:
                 obstruction_counters[self.index] = 0
                 self.is_obstacle = False
 
-            # Trigger only if persistent (approx 0.5 seconds / 8 frames)
-            # Increased buffer to prevent false stops from motion blur
-            if obstruction_counters[self.index] > 8:
+            # FAST REACTION: 3 Consecutive frames (~100ms) triggers stop
+            if obstruction_counters[self.index] > 3:
                 self.is_obstacle = True
                 trigger_emergency_stop(cam_id)
                 
-                # VISUAL ALERT ON CAMERA
-                # Red Box Border
-                cv2.rectangle(image, (0,0), (320,240), (0,0,255), 15)
-                # Text Overlay
-                cv2.putText(image, "OBSTACLE DETECTED", (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                cv2.putText(image, "STOPPING VEHICLE", (30, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                
-                # Debug Info
-                cv2.putText(image, f"Density: {density:.1f}%", (10, 230), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-
+                # Visual Alert
+                cv2.rectangle(image, (0,0), (320,240), (0,0,255), 10)
+                cv2.putText(image, "OBSTACLE NEAR!", (40, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                cv2.putText(image, "VEHICLE STOPPED", (50, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             else:
                 reset_stop_flag() 
+                # Show Safe Status
+                cv2.putText(image, f"SAFE (Score: {int(blur_score)})", (10, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         
-        # --- 2. IMAGE CAPTURE (Side Track Cams) ---
+        # --- 2. IMAGE CAPTURE ---
         elif self.role == "CAPTURE":
             global last_save_time
             if vehicle_status == "MOVING":
                 now = time.time()
                 if now - last_save_time > 1.0:
-                    last_save_time = now # Update global timer
+                    last_save_time = now 
                     save_snapshot(image, cam_id)
                     cv2.putText(image, "REC", (280, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
-        # Cam ID Overlay
         if not self.is_obstacle:
             cv2.putText(image, f"CAM {cam_id}", (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
         
-        try:
-            ret, jpeg = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
-            return jpeg.tobytes()
-        except: return None
+        # Ultra Fast Compression
+        # Quality 25 is lower quality but MUCH smoother stream
+        ret, jpeg = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 25])
+        return jpeg.tobytes()
 
 # --- HELPER FUNCTIONS ---
 def trigger_emergency_stop(cam_id):
@@ -155,7 +141,6 @@ def reset_stop_flag():
     stop_command_sent = False
 
 def save_snapshot(image, cam_id):
-    # Run in thread to not block video
     def _save():
         try:
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -174,30 +159,24 @@ def gen(cam_idx):
     global cameras
     while True:
         try:
-            # Init Camera if missing
             if cameras[cam_idx] is None:
-                try: 
-                    cameras[cam_idx] = VideoCamera(indices[cam_idx], roles[cam_idx])
+                try: cameras[cam_idx] = VideoCamera(indices[cam_idx], roles[cam_idx])
                 except: pass
-                time.sleep(1.0) # Wait before retry
+                time.sleep(0.5)
                 continue
             
-            # Get Frame
             frame = cameras[cam_idx].get_frame_and_process(cam_idx + 1)
             
             if frame: 
                 yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-                time.sleep(0.05) # 20 FPS Cap
+                # REMOVED ARTIFICIAL SLEEP for max smoothness
+                # Flask/CV2 will naturally limit to processing speed (~30fps)
             else:
-                # If frame fails (camera disconnected), kill object to force re-init
-                cameras[cam_idx] = None
+                cameras[cam_idx] = None # Reset on fail
                 time.sleep(0.5)
 
-        except GeneratorExit:
-            # Browser closed tab - Allow clean exit
-            return
-        except Exception as e: 
-            time.sleep(0.5)
+        except GeneratorExit: return
+        except Exception: time.sleep(0.5)
 
 # --- MONITOR ---
 def firebase_monitor():
@@ -210,13 +189,12 @@ def firebase_monitor():
                 data = r.json()
                 if data and "status" in data:
                     vehicle_status = data["status"]
-            time.sleep(1.0)
-        except: time.sleep(2.0)
+            time.sleep(0.5) # Check faster (500ms)
+        except: time.sleep(1.0)
 
 # --- ROUTES ---
 @app.route('/')
-def index():
-    return "RAIV VISION SERVER ONLINE"
+def index(): return "RAIV VISION SERVER ONLINE"
 
 @app.route('/video1')
 def video_feed1(): return Response(gen(0), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -251,4 +229,5 @@ if __name__ == '__main__':
     t_fb.start()
 
     print(f"--- SYSTEM ACTIVE ---")
+    # Threaded=True is essential for parallel camera streams
     app.run(host='0.0.0.0', port=PORT, threaded=True)
