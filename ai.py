@@ -14,7 +14,10 @@ import queue
 # --- CONFIGURATION ---
 CAM_INDICES = [0, 1, 2, 3] 
 PORT = 5000
-SAFE_SCORE_THRESHOLD = 300 
+
+# SAFE SCORE THRESHOLDS (LOWER = BLURRIER/CLOSER)
+SAFE_SCORE_CAM_2 = 300 # Back View
+SAFE_SCORE_CAM_3 = 500 # Front View
 
 # FIREBASE CONFIG
 FIREBASE_BASE_URL = "https://mpm-raiv-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -30,7 +33,6 @@ cmd_queue = queue.Queue()
 # --- GLOBAL STATE ---
 vehicle_status = "STANDBY" 
 last_save_time = 0
-stop_command_sent = False
 
 # GLOBAL FRAME BUFFER (Pre-encoded)
 global_frames = [None, None, None, None]
@@ -45,8 +47,9 @@ def network_worker():
         cmd = cmd_queue.get()
         if cmd is None: break
         try:
-            # Short timeout to fail fast and retry if needed
-            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.5)
+            # Ultra-fast timeout to prevent blocking
+            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.2)
+            print(f"📡 SENT: {cmd}")
         except: pass
         cmd_queue.task_done()
 
@@ -61,18 +64,21 @@ class CameraThread(threading.Thread):
         self.index = index
         self.role = role
         self.daemon = True
-        # MSMF is faster on Windows
         self.cap = cv2.VideoCapture(index, cv2.CAP_MSMF)
         
         if self.cap.isOpened():
             self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+            # LOWEST RESOLUTION FOR MAX SPEED
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
             self.cap.set(cv2.CAP_PROP_FPS, 30)
     
     def run(self):
-        global global_frames, last_save_time, stop_command_sent
+        global global_frames, last_save_time
         obstruction_counter = 0
+        
+        # Set specific threshold based on camera index
+        my_threshold = SAFE_SCORE_CAM_2 if self.index == 1 else SAFE_SCORE_CAM_3
         
         while True:
             if not self.cap.isOpened():
@@ -85,49 +91,34 @@ class CameraThread(threading.Thread):
                 time.sleep(0.1)
                 continue
 
-            # --- OBSTACLE DETECTION (SMART) ---
+            # --- OBSTACLE DETECTION (NO DRAWING) ---
             if self.role == "DETECT":
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 
-                # 1. Blur Check (Object very close)
+                # 1. Blur Check
                 blur = cv2.Laplacian(gray, cv2.CV_64F).var()
                 
                 # 2. Large Object Check (Contour Area)
-                # Threshold to black/white
                 _, thresh = cv2.threshold(gray, 60, 255, cv2.THRESH_BINARY_INV)
-                # Find contours (blobs)
                 contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 
                 has_large_obstacle = False
                 for cnt in contours:
-                    area = cv2.contourArea(cnt)
-                    # If a blob covers > 40% of the screen (320x240 = 76800 pixels)
-                    # 40% is approx 30,000 pixels
-                    if area > 30000:
+                    if cv2.contourArea(cnt) > 30000:
                         has_large_obstacle = True
-                        # Draw it for feedback
-                        x,y,w,h = cv2.boundingRect(cnt)
-                        cv2.rectangle(frame, (x,y), (x+w,y+h), (0,255,255), 2)
                         break
 
-                # COMBINED LOGIC:
-                # If blurry (too close) OR large dark object blocking view
-                if (blur < SAFE_SCORE_THRESHOLD) or has_large_obstacle:
+                # CHECK AGAINST THRESHOLD
+                if (blur < my_threshold) or has_large_obstacle:
                     obstruction_counter += 1
                 else:
                     obstruction_counter = 0
-                    if stop_command_sent: stop_command_sent = False 
 
-                # Fast Trigger: 2 frames (approx 66ms response)
+                # Fast Trigger: 2 frames
                 if obstruction_counter > 2:
-                    if not stop_command_sent:
-                        print(f"!!! STOP: CAM {self.index} !!!")
-                        # Priority Send
-                        cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
-                        stop_command_sent = True
-                    
-                    cv2.rectangle(frame, (0,0), (320,240), (0,0,255), 10)
-                    cv2.putText(frame, "STOP", (100, 120), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255), 4)
+                    print(f"⚠️ OBSTACLE DETECTED [CAM {self.index}] (Score: {int(blur)} < {my_threshold}) -> STOPPING")
+                    # Send STOP every time loop runs (continuous safety)
+                    cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
 
             # --- IMAGE CAPTURE ---
             elif self.role == "CAPTURE":
@@ -137,18 +128,18 @@ class CameraThread(threading.Thread):
                         if self.index == 0 or (self.index == 3 and now - last_save_time > 1.1):
                             last_save_time = now
                             self.save_img(frame)
-                            cv2.putText(frame, "REC", (250, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,0,255), 2)
+                            print(f"📸 SNAPSHOT [CAM {self.index}]")
 
-            # --- ENCODE & UPDATE BUFFER ---
-            # Low quality for speed over network
+            # --- ENCODE & UPDATE BUFFER (PURE VIDEO) ---
             try:
+                # Quality 30 is fast and good enough for view
                 ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
                 if ret:
                     global_frames[self.index] = buffer.tobytes()
             except: pass
             
-            # Tiny sleep to prevent CPU 100% usage
-            time.sleep(0.005)
+            # Tiny sleep to yield CPU
+            time.sleep(0.001)
 
     def save_img(self, frame):
         try:
@@ -169,8 +160,8 @@ def gen(cam_idx):
         frame = global_frames[cam_idx]
         if frame:
             yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-            # Cap at 20 FPS to save network bandwidth for commands
-            time.sleep(0.05) 
+            # 30 FPS Cap
+            time.sleep(0.03) 
         else:
             time.sleep(0.1)
 
@@ -190,7 +181,7 @@ def firebase_monitor():
 
 # --- ROUTES ---
 @app.route('/')
-def index(): return "RAIV VISION SYSTEM ONLINE"
+def index(): return "RAIV VISION SYSTEM ONLINE (HEADLESS MODE)"
 
 @app.route('/video1')
 def video_feed1(): return Response(gen(0), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -231,5 +222,5 @@ if __name__ == '__main__':
     t_fb.daemon = True
     t_fb.start()
 
-    print(f"--- SYSTEM ACTIVE ---")
+    print(f"--- SYSTEM ACTIVE (TERMINAL OUTPUT ONLY) ---")
     app.run(host='0.0.0.0', port=PORT, threaded=True)
