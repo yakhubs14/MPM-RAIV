@@ -72,6 +72,8 @@ class VideoCamera(object):
             self.video.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self.video.set(cv2.CAP_PROP_FPS, 30)
+            # IMPORTANT: Set Buffer Size to 1 to reduce lag
+            self.video.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         else:
             print(f"Warning: Camera {index} failed to open.")
     
@@ -85,7 +87,8 @@ class VideoCamera(object):
             self.video.open(self.index, cv2.CAP_MSMF)
             if not self.video.isOpened(): return None
 
-        self.video.grab() # Flush buffer
+        # CRITICAL LAG FIX: Grab frame to clear buffer, then read latest
+        self.video.grab()
         success, image = self.video.read()
         if not success: return None
         
@@ -136,7 +139,8 @@ class VideoCamera(object):
         if not self.is_obstacle:
             cv2.putText(image, f"CAM {cam_id}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
         
-        ret, jpeg = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 40])
+        # JPEG Quality 30 for speed (lower quality = faster)
+        ret, jpeg = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
         return jpeg.tobytes()
 
 # --- HELPER FUNCTIONS ---
@@ -181,6 +185,7 @@ def gen(cam_idx):
             
             if frame: 
                 yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+                # NO SLEEP here - let it run as fast as possible
             else:
                 cameras[cam_idx] = None 
                 time.sleep(0.5)
