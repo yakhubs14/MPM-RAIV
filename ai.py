@@ -12,11 +12,7 @@ from datetime import datetime
 import queue
 
 # --- CONFIGURATION ---
-CAM_1_INDEX = 0 # Right Track
-CAM_2_INDEX = 1 # Back View
-CAM_3_INDEX = 2 # Front View 
-CAM_4_INDEX = 3 # Left Track
-
+CAM_INDICES = [0, 1, 2, 3] # Verify these match your setup
 PORT = 5000
 SAFE_SCORE_THRESHOLD = 300 
 
@@ -29,13 +25,17 @@ TELEMETRY_ENDPOINT = f"{FIREBASE_BASE_URL}/telemetry.json"
 SAVE_DIR = r"C:\Users\Shukri\Documents\RAIV\Saved Pictures"
 
 app = Flask(__name__)
-cmd_queue = queue.Queue() # Non-blocking command queue
+cmd_queue = queue.Queue() 
 
 # --- GLOBAL STATE ---
 vehicle_status = "STANDBY" 
 last_save_time = 0
 stop_command_sent = False
-obstruction_counters = {1: 0, 2: 0} 
+
+# GLOBAL FRAME BUFFER (The Secret to Speed)
+# Stores the latest JPEG bytes for each camera.
+# The streaming threads just READ this, they don't do any processing.
+global_frames = [None, None, None, None]
 
 if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
@@ -47,151 +47,107 @@ def network_worker():
         cmd = cmd_queue.get()
         if cmd is None: break
         try:
-            # print(f"Sending: {cmd}")
             requests.put(COMMAND_ENDPOINT, json=cmd, timeout=1)
         except: pass
         cmd_queue.task_done()
 
-# Start worker thread
 t_worker = threading.Thread(target=network_worker)
 t_worker.daemon = True
 t_worker.start()
 
-# --- CAMERA HANDLING ---
-class VideoCamera(object):
-    def __init__(self, index, role="VIEW"):
-        # SWITCH TO MSMF FOR STABILITY ON WINDOWS WITH MULTI-CAM
-        self.video = cv2.VideoCapture(index, cv2.CAP_MSMF)
-        self.role = role 
+# --- CAMERA PROCESSOR (Runs in Background) ---
+class CameraThread(threading.Thread):
+    def __init__(self, index, role):
+        threading.Thread.__init__(self)
         self.index = index
-        self.is_obstacle = False
+        self.role = role
+        self.daemon = True
+        self.cap = cv2.VideoCapture(index, cv2.CAP_MSMF)
         
-        if self.video.isOpened():
-            # Force MJPG to save USB Bandwidth
-            self.video.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-            self.video.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            self.video.set(cv2.CAP_PROP_FPS, 30)
-            # IMPORTANT: Set Buffer Size to 1 to reduce lag
-            self.video.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        else:
-            print(f"Warning: Camera {index} failed to open.")
+        if self.cap.isOpened():
+            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+            self.cap.set(cv2.CAP_PROP_FPS, 30)
     
-    def __del__(self): 
-        if self.video.isOpened(): self.video.release()
-    
-    def get_frame_and_process(self, cam_id):
-        if not self.video.isOpened(): 
-            # Gentle Reconnect
-            time.sleep(2) 
-            self.video.open(self.index, cv2.CAP_MSMF)
-            if not self.video.isOpened(): return None
-
-        # CRITICAL LAG FIX: Grab frame to clear buffer, then read latest
-        self.video.grab()
-        success, image = self.video.read()
-        if not success: return None
+    def run(self):
+        global global_frames, last_save_time, stop_command_sent
+        obstruction_counter = 0
         
-        # --- 1. OBSTRUCTION DETECTION ---
-        if self.role == "DETECT":
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
-            mean_brightness = np.mean(gray)
-            
-            # Logic: If Score < Threshold, it's too blurry/close -> STOP
-            is_blocked = (blur_score < SAFE_SCORE_THRESHOLD) or (mean_brightness < 10)
-
-            if is_blocked: 
-                obstruction_counters[self.index] += 1
-            else:
-                obstruction_counters[self.index] = 0
-                self.is_obstacle = False
-
-            # Fast Trigger: 3 frames
-            if obstruction_counters[self.index] > 3:
-                self.is_obstacle = True
-                trigger_emergency_stop(cam_id)
-                
-                # VISUAL ALERT
-                cv2.rectangle(image, (0,0), (640,480), (0,0,255), 20)
-                # THICK BORDER TEXT FOR VISIBILITY
-                cv2.putText(image, "OBSTACLE DETECTED", (50, 180), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0,0,0), 8) 
-                cv2.putText(image, "OBSTACLE DETECTED", (50, 180), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0,0,255), 3) 
-                
-                cv2.putText(image, "VEHICLE STOPPED", (80, 240), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,0), 8)
-                cv2.putText(image, "VEHICLE STOPPED", (80, 240), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 3)
-            else:
-                reset_stop_flag() 
-                score_text = f"SAFE (Score: {int(blur_score)})"
-                cv2.putText(image, score_text, (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,0,0), 4)
-                cv2.putText(image, score_text, (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        
-        # --- 2. IMAGE CAPTURE ---
-        elif self.role == "CAPTURE":
-            global last_save_time
-            if vehicle_status == "MOVING":
-                now = time.time()
-                if now - last_save_time > 1.0:
-                    last_save_time = now 
-                    save_snapshot(image, cam_id)
-                    cv2.putText(image, "REC", (550, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 3)
-
-        if not self.is_obstacle:
-            cv2.putText(image, f"CAM {cam_id}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
-        
-        # JPEG Quality 30 for speed (lower quality = faster)
-        ret, jpeg = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
-        return jpeg.tobytes()
-
-# --- HELPER FUNCTIONS ---
-def trigger_emergency_stop(cam_id):
-    global stop_command_sent
-    if not stop_command_sent:
-        print(f"!!! STOP: OBSTACLE CAM {cam_id} !!!")
-        cmd = f"STOP_EMERGENCY_{int(time.time())}"
-        cmd_queue.put(cmd) # Non-blocking send
-        stop_command_sent = True
-
-def reset_stop_flag():
-    global stop_command_sent
-    stop_command_sent = False
-
-def save_snapshot(image, cam_id):
-    def _save():
-        try:
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            fn = os.path.join(SAVE_DIR, f"CAM{cam_id}_{ts}.jpg")
-            cv2.imwrite(fn, image)
-            print(f"Saved: {fn}")
-        except: pass
-    threading.Thread(target=_save).start()
-
-# --- GLOBAL CAMERAS ---
-cameras = [None, None, None, None] 
-indices = [CAM_1_INDEX, CAM_2_INDEX, CAM_3_INDEX, CAM_4_INDEX]
-roles   = ["CAPTURE", "DETECT", "DETECT", "CAPTURE"]
-
-def gen(cam_idx):
-    global cameras
-    while True:
-        try:
-            if cameras[cam_idx] is None:
-                try: cameras[cam_idx] = VideoCamera(indices[cam_idx], roles[cam_idx])
-                except: pass
-                time.sleep(2.0) # Longer wait on fail
+        while True:
+            if not self.cap.isOpened():
+                time.sleep(2)
+                self.cap.open(self.index, cv2.CAP_MSMF)
                 continue
             
-            frame = cameras[cam_idx].get_frame_and_process(cam_idx + 1)
-            
-            if frame: 
-                yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-                # NO SLEEP here - let it run as fast as possible
-            else:
-                cameras[cam_idx] = None 
-                time.sleep(0.5)
+            success, frame = self.cap.read()
+            if not success:
+                time.sleep(0.1)
+                continue
 
-        except GeneratorExit: return
-        except Exception: time.sleep(0.5)
+            # --- PROCESSING ---
+            if self.role == "DETECT":
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                blur = cv2.Laplacian(gray, cv2.CV_64F).var()
+                mean_b = np.mean(gray)
+
+                if (blur < SAFE_SCORE_THRESHOLD) or (mean_b < 10):
+                    obstruction_counter += 1
+                else:
+                    obstruction_counter = 0
+                    if stop_command_sent: stop_command_sent = False # Auto-reset logic
+
+                if obstruction_counter > 3:
+                    if not stop_command_sent:
+                        print(f"!!! STOP: CAM {self.index} !!!")
+                        cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
+                        stop_command_sent = True
+                    
+                    cv2.rectangle(frame, (0,0), (320,240), (0,0,255), 10)
+                    cv2.putText(frame, "STOP", (100, 120), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255), 4)
+
+            elif self.role == "CAPTURE":
+                if vehicle_status == "MOVING":
+                    now = time.time()
+                    if now - last_save_time > 1.0:
+                        # Simple throttle to avoid saving 4x images at once
+                        if self.index == 0 or (self.index == 3 and now - last_save_time > 1.1):
+                            last_save_time = now
+                            self.save_img(frame)
+                            cv2.putText(frame, "REC", (250, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,0,255), 2)
+
+            # --- ENCODE & UPDATE BUFFER ---
+            try:
+                ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 40])
+                if ret:
+                    global_frames[self.index] = buffer.tobytes()
+            except: pass
+            
+            # Allow other threads to run
+            time.sleep(0.01)
+
+    def save_img(self, frame):
+        try:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            fn = os.path.join(SAVE_DIR, f"CAM{self.index}_{ts}.jpg")
+            cv2.imwrite(fn, frame)
+            print(f"Saved: {fn}")
+        except: pass
+
+# Start Camera Threads
+roles = ["CAPTURE", "DETECT", "DETECT", "CAPTURE"]
+for i in range(4):
+    CameraThread(i, roles[i]).start()
+
+# --- STREAM GENERATOR ---
+def gen(cam_idx):
+    while True:
+        frame = global_frames[cam_idx]
+        if frame:
+            yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+            time.sleep(0.04) # Limit to ~25 FPS to save bandwidth
+        else:
+            time.sleep(0.1)
 
 # --- MONITOR ---
 def firebase_monitor():
@@ -204,12 +160,12 @@ def firebase_monitor():
                 data = r.json()
                 if data and "status" in data:
                     vehicle_status = data["status"]
-            time.sleep(0.5) 
-        except: time.sleep(1.0)
+            time.sleep(1.0) 
+        except: time.sleep(2.0)
 
 # --- ROUTES ---
 @app.route('/')
-def index(): return "RAIV VISION SERVER ONLINE"
+def index(): return "RAIV VISION SYSTEM ONLINE"
 
 @app.route('/video1')
 def video_feed1(): return Response(gen(0), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -221,33 +177,12 @@ def video_feed3(): return Response(gen(2), mimetype='multipart/x-mixed-replace; 
 def video_feed4(): return Response(gen(3), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 # --- STARTUP ---
-def clean_zombies():
-    print("--- CLEANING PREVIOUS TUNNELS ---")
-    try:
-        subprocess.run("taskkill /F /IM cloudflared.exe", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except: pass
-
 def start_tunnel():
-    print("--- WAITING FOR FLASK SERVER ---")
-    max_retries = 20
-    server_ready = False
+    print("--- WAITING FOR FLASK ---")
+    time.sleep(3)
     
-    for i in range(max_retries):
-        try:
-            r = requests.get(f"http://127.0.0.1:{PORT}")
-            if r.status_code == 200:
-                print(f"✅ FLASK SERVER DETECTED (Attempt {i+1})")
-                server_ready = True
-                break
-        except:
-            time.sleep(1)
-            print(f"...waiting ({i+1}/{max_retries})")
-    
-    if not server_ready:
-        print("❌ ERROR: Flask Server failed. Tunnel aborted.")
-        return
-
-    print("--- STARTING CLOUDFLARED ---")
+    print("--- STARTING TUNNEL ---")
+    # Force cloudflared to point to 127.0.0.1 explicitly
     cmd = ['cloudflared', 'tunnel', '--url', f'http://127.0.0.1:{PORT}']
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
     
@@ -256,16 +191,13 @@ def start_tunnel():
         if match:
             url = match.group(0)
             print(f"\n✅ TUNNEL: {url}")
-            try: 
-                r = requests.put(URL_ENDPOINT, json=url)
-                if r.status_code == 200: print("✅ FIREBASE UPDATED")
-                else: print(f"❌ FIREBASE ERROR: {r.status_code}")
-            except Exception as e: 
-                print(f"❌ UPLOAD FAILED: {e}")
+            try: requests.put(URL_ENDPOINT, json=url)
+            except: pass
             break 
 
 if __name__ == '__main__':
-    clean_zombies() 
+    try: subprocess.run("taskkill /F /IM cloudflared.exe", shell=True, stdout=subprocess.DEVNULL)
+    except: pass
     
     t_tunnel = threading.Thread(target=start_tunnel)
     t_tunnel.daemon = True
@@ -276,4 +208,5 @@ if __name__ == '__main__':
     t_fb.start()
 
     print(f"--- SYSTEM ACTIVE ---")
+    # Bind to 0.0.0.0 to ensure accessibility
     app.run(host='0.0.0.0', port=PORT, threaded=True)
