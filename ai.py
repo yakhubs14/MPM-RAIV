@@ -73,21 +73,37 @@ class VideoCamera(object):
         
         # --- 1. OBSTRUCTION DETECTION (Front/Rear Cams) ---
         if self.role == "DETECT":
+            # UPDATED ALGORITHM: EDGE DENSITY CHECK
+            # 1. Convert to Grayscale
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            mean_brightness = np.mean(gray)
-            std_dev = np.std(gray)
             
-            # TUNED THRESHOLDS: 
-            # Brightness < 5 (Pitch Black) OR StdDev < 3 (Completely uniform/covered)
-            # We use a counter so it must happen for 5 consecutive frames
-            if mean_brightness < 10 or std_dev < 5: 
+            # 2. Detect Edges using Canny
+            # Objects 1-2cm away will be out of focus/blurry -> Low Edge Count
+            # Normal scene (tracks) has high detail -> High Edge Count
+            edges = cv2.Canny(gray, 50, 150)
+            
+            # 3. Calculate "Edge Density" (Percentage of white pixels)
+            total_pixels = image.shape[0] * image.shape[1]
+            edge_pixels = np.count_nonzero(edges)
+            density = (edge_pixels / total_pixels) * 100
+            
+            # 4. Brightness Check (Still useful for total darkness)
+            mean_brightness = np.mean(gray)
+
+            # THRESHOLD LOGIC:
+            # If density is VERY LOW (< 2%), it means the image is flat/blurry (Blocked)
+            # OR if it's pitch black (< 10 brightness)
+            is_blocked = (density < 2.0) or (mean_brightness < 10)
+            
+            if is_blocked: 
                 obstruction_counters[self.index] += 1
             else:
                 obstruction_counters[self.index] = 0
                 self.is_obstacle = False
 
-            # Trigger only if persistent (approx 0.3 seconds)
-            if obstruction_counters[self.index] > 5:
+            # Trigger only if persistent (approx 0.5 seconds / 8 frames)
+            # Increased buffer to prevent false stops from motion blur
+            if obstruction_counters[self.index] > 8:
                 self.is_obstacle = True
                 trigger_emergency_stop(cam_id)
                 
@@ -95,8 +111,12 @@ class VideoCamera(object):
                 # Red Box Border
                 cv2.rectangle(image, (0,0), (320,240), (0,0,255), 15)
                 # Text Overlay
-                cv2.putText(image, "OBSTACLE DETECTED", (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-                cv2.putText(image, "VEHICLE STOPPED", (40, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                cv2.putText(image, "OBSTACLE DETECTED", (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                cv2.putText(image, "STOPPING VEHICLE", (30, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                
+                # Debug Info
+                cv2.putText(image, f"Density: {density:.1f}%", (10, 230), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+
             else:
                 reset_stop_flag() 
         
