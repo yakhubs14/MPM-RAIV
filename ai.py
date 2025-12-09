@@ -57,8 +57,8 @@ def network_worker():
         cmd = cmd_queue.get()
         if cmd is None: break
         try:
-            # Ultra-fast timeout
-            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.2)
+            # Ultra-fast timeout (0.1s) for instant fire-and-forget
+            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.1)
         except: pass
         cmd_queue.task_done()
 
@@ -90,6 +90,9 @@ class CameraThread(threading.Thread):
         # Determine specific thresholds for this camera
         my_safe_limit = SAFE_SCORE_LIMIT_CAM_2 if self.index == 1 else SAFE_SCORE_LIMIT_CAM_3
         my_red_limit = RED_THRESHOLD_CAM_2 if self.index == 1 else RED_THRESHOLD_CAM_3
+        
+        # State tracking to avoid spamming
+        is_currently_stopped = False
         
         while True:
             if not self.cap.isOpened():
@@ -123,10 +126,6 @@ class CameraThread(threading.Thread):
                 current_red_scores[self.index] = red_percentage
 
                 # --- STOP LOGIC ---
-                # Stop if:
-                # A. Red Percentage > Limit (Red Obstacle)
-                # B. Safe Score < Limit (Blurry/Blocked/Too Close)
-                
                 is_danger = False
                 reason = ""
 
@@ -141,13 +140,22 @@ class CameraThread(threading.Thread):
                     stop_trigger_count += 1
                 else:
                     stop_trigger_count = 0
+                    is_currently_stopped = False # Reset state immediately when clear
 
                 # Fast Trigger: 3 frames (~100ms)
                 if stop_trigger_count > 3:
-                     print(f"\n[⛔ STOP] {cam_label} CAM: {reason} -> STOPPING VEHICLE")
-                     # INSTANT SEND
+                     # Only print/send if we haven't already locked it down recently 
+                     # OR if we want to ensure it stays stopped (send every ~30 frames?)
+                     # Here we send continuously but check state to avoid console spam
+                     if not is_currently_stopped:
+                         print(f"\n[⛔ STOP] {cam_label} CAM: {reason} -> STOPPING VEHICLE")
+                         is_currently_stopped = True
+                     
+                     # INSTANT SEND (Always send while danger exists to ensure vehicle doesn't move)
                      cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
-                     stop_trigger_count = 2 # Keep it ready to trigger again
+                     
+                     # Cap counter to prevent overflow but keep > 3
+                     stop_trigger_count = 4 
 
             # --- IMAGE CAPTURE ---
             elif self.role == "CAPTURE":
