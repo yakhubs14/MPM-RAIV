@@ -10,25 +10,13 @@ import os
 import numpy as np
 from datetime import datetime
 import queue
-from ultralytics import YOLO 
 
 # --- CONFIGURATION ---
 CAM_INDICES = [0, 1, 2, 3] 
 PORT = 5000
 
-# ROBUST DETECTION SETTINGS
-# 1. AI Thresholds
-AI_CONFIDENCE = 0.60       # Only trust detections > 60% confidence
-AI_NEAR_AREA_RATIO = 0.35  # Object must cover 35% of screen (Very Close)
-
-# 2. Physical Obstruction Thresholds (Covered Camera)
-BLUR_THRESHOLD = 150       # Lower = Blurry. <150 is very blurry.
-DARKNESS_THRESHOLD = 5     # Lower = Darker. <5 is pitch black.
-
-# 3. Persistence (The "Anti-Ghost" Filter)
-# Must detect danger for this many consecutive frames to stop.
-# At 15 AI-FPS, 4 frames = ~0.25 seconds of continuous detection.
-DANGER_PERSISTENCE_LIMIT = 4 
+# RED DETECTION THRESHOLD
+RED_PERCENTAGE_THRESHOLD = 70.0 # Stop if > 70% of screen is red
 
 # FIREBASE CONFIG
 FIREBASE_BASE_URL = "https://mpm-raiv-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -44,19 +32,19 @@ cmd_queue = queue.Queue()
 # --- GLOBAL STATE ---
 vehicle_status = "STANDBY" 
 last_save_time = 0
+
+# GLOBAL FRAME BUFFER
 global_frames = [None, None, None, None]
 
-# AI MODEL - OPTIMIZED FOR SPEED & LOGIC
-print("--- LOADING HIGH-SPEED AI MODEL (YOLOv8n) ---")
-# Using Nano for max FPS, but relying on robust logic for accuracy.
-model = YOLO("yolov8n.pt") 
-print("--- AI ENGINE READY ---")
+# Global Safe Scores for printing
+current_safe_scores = {1: 0, 2: 0}
+current_red_scores = {1: 0, 2: 0} # Track red percentage
 
 if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
     except: pass
 
-# --- NETWORK WORKER (NON-BLOCKING) ---
+# --- NETWORK WORKER ---
 def network_worker():
     while True:
         cmd = cmd_queue.get()
@@ -83,14 +71,13 @@ class CameraThread(threading.Thread):
             self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-            self.cap.set(cv2.CAP_PROP_FPS, 60) # Request Max FPS
+            self.cap.set(cv2.CAP_PROP_FPS, 30)
     
     def run(self):
-        global global_frames, last_save_time
+        global global_frames, last_save_time, current_safe_scores, current_red_scores
         
-        # Persistence Counters
-        danger_counter = 0
-        frame_count = 0
+        stop_trigger_count = 0
+        cam_label = "BACK" if self.index == 1 else "FRONT"
         
         while True:
             if not self.cap.isOpened():
@@ -103,54 +90,43 @@ class CameraThread(threading.Thread):
                 time.sleep(0.01)
                 continue
 
-            frame_count += 1
+            # --- OBSTACLE DETECTION (RED COLOR LOGIC) ---
+            if self.role == "DETECT":
+                # Convert to HSV
+                hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+                
+                # Define Red Range (Red wraps around 0/180)
+                # Lower Red
+                lower1 = np.array([0, 100, 100])
+                upper1 = np.array([10, 255, 255])
+                # Upper Red
+                lower2 = np.array([160, 100, 100])
+                upper2 = np.array([180, 255, 255])
+                
+                # Create Masks
+                mask1 = cv2.inRange(hsv, lower1, upper1)
+                mask2 = cv2.inRange(hsv, lower2, upper2)
+                mask = mask1 + mask2
+                
+                # Calculate Percentage
+                total_pixels = 320 * 240
+                red_pixels = cv2.countNonZero(mask)
+                red_percentage = (red_pixels / total_pixels) * 100
+                
+                # Update global score for printing
+                current_red_scores[self.index] = red_percentage
 
-            # --- SMART AI DETECTION (Every 3rd Frame for Speed) ---
-            # We process AI less often than we stream video.
-            # This keeps the video "Butter Smooth" even if AI takes 50ms.
-            if self.role == "DETECT" and (frame_count % 3 == 0):
-                
-                is_danger = False
-                
-                # A. Physical Check (Is camera covered?)
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                mean_b = np.mean(gray)
-                
-                if mean_b < DARKNESS_THRESHOLD:
-                    is_danger = True # Covered with hand (Black)
+                # Logic: STOP IF RED > 70%
+                if red_percentage > RED_PERCENTAGE_THRESHOLD:
+                    stop_trigger_count += 1
                 else:
-                    # B. AI Object Check (Is there a train/person?)
-                    # Classes: 0=person, 1=bike, 2=car, 3=motorcycle, 5=bus, 6=train, 7=truck
-                    results = model(frame, stream=True, verbose=False, conf=AI_CONFIDENCE, 
-                                    classes=[0, 1, 2, 3, 5, 6, 7])
-                    
-                    for r in results:
-                        boxes = r.boxes
-                        for box in boxes:
-                            x1, y1, x2, y2 = box.xyxy[0]
-                            area = (x2 - x1) * (y2 - y1)
-                            coverage = area / (320 * 240)
-                            
-                            # Only stop if object is LARGE (Near)
-                            if coverage > AI_NEAR_AREA_RATIO:
-                                is_danger = True
-                                break
-                        if is_danger: break
-                
-                # Persistence Filter
-                if is_danger:
-                    danger_counter += 1
-                else:
-                    # Decay counter slowly instead of instant reset (debouncing)
-                    if danger_counter > 0: danger_counter -= 1
+                    stop_trigger_count = 0
 
-                # TRIGGER
-                if danger_counter >= DANGER_PERSISTENCE_LIMIT:
-                    cam_name = "BACK" if self.index == 1 else "FRONT"
-                    print(f"🚨 [CRITICAL] {cam_name} CAM: OBSTACLE CONFIRMED -> STOPPING")
-                    cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
-                    # Reset slightly to avoid spamming 100 commands a second
-                    danger_counter = DANGER_PERSISTENCE_LIMIT - 1 
+                # Require 3 consecutive frames (Anti-Flicker)
+                if stop_trigger_count > 3:
+                     print(f"\n[⛔ STOP] {cam_label} RED OBSTACLE DETECTED ({red_percentage:.1f}%) -> STOPPING VEHICLE")
+                     cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
+                     stop_trigger_count = 2 
 
             # --- IMAGE CAPTURE ---
             elif self.role == "CAPTURE":
@@ -161,16 +137,13 @@ class CameraThread(threading.Thread):
                             last_save_time = now
                             self.save_img(frame)
 
-            # --- ENCODE & UPDATE BUFFER (PURE VIDEO) ---
-            # We encode EVERY frame for the stream, regardless of AI logic
+            # --- ENCODE ---
             try:
-                # Quality 40 is a good balance for 320p
-                ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 40])
+                ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 35])
                 if ret:
                     global_frames[self.index] = buffer.tobytes()
             except: pass
             
-            # Tiny yield
             time.sleep(0.001)
 
     def save_img(self, frame):
@@ -186,14 +159,13 @@ roles = ["CAPTURE", "DETECT", "DETECT", "CAPTURE"]
 for i in range(4):
     CameraThread(i, roles[i]).start()
 
-# --- STREAM GENERATOR (Zero-Wait) ---
+# --- STREAM GENERATOR ---
 def gen(cam_idx):
     while True:
         frame = global_frames[cam_idx]
         if frame:
             yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-            # 30 FPS Target for Stream (0.033s)
-            time.sleep(0.033) 
+            time.sleep(0.04) 
         else:
             time.sleep(0.1)
 
@@ -210,9 +182,17 @@ def firebase_monitor():
             time.sleep(1.0) 
         except: time.sleep(2.0)
 
+# --- STATUS PRINTER ---
+def status_printer():
+    print("--- STATUS PRINTER STARTED ---")
+    while True:
+        time.sleep(2.0) 
+        # Print Red Percentages
+        print(f"🔴 RED OBSTACLE: [BACK CAM: {current_red_scores[1]:.1f}%] | [FRONT CAM: {current_red_scores[2]:.1f}%]")
+
 # --- ROUTES ---
 @app.route('/')
-def index(): return "RAIV AI VISION SYSTEM ONLINE (V11.0)"
+def index(): return "RAIV VISION SYSTEM ONLINE"
 
 @app.route('/video1')
 def video_feed1(): return Response(gen(0), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -251,6 +231,10 @@ if __name__ == '__main__':
     t_fb = threading.Thread(target=firebase_monitor)
     t_fb.daemon = True
     t_fb.start()
+    
+    t_print = threading.Thread(target=status_printer)
+    t_print.daemon = True
+    t_print.start()
 
-    print(f"--- SYSTEM ACTIVE (HIGH PERF / AI MODE) ---")
+    print(f"--- SYSTEM ACTIVE ---")
     app.run(host='0.0.0.0', port=PORT, threaded=True)
