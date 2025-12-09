@@ -15,8 +15,15 @@ import queue
 CAM_INDICES = [0, 1, 2, 3] 
 PORT = 5000
 
-# RED DETECTION THRESHOLD
-RED_PERCENTAGE_THRESHOLD = 70.0 # Stop if > 70% of screen is red
+# 1. SAFE SCORE THRESHOLDS (Blur/Sharpness)
+# Lower = Blurry/Blocked. If below this, STOP.
+SAFE_SCORE_LIMIT_CAM_2 = 500  # Back View Limit
+SAFE_SCORE_LIMIT_CAM_3 = 1000 # Front View Limit
+
+# 2. RED OBSTACLE THRESHOLDS (Color Area %)
+# Higher = More Red. If above this, STOP.
+RED_THRESHOLD_CAM_2 = 70.0 # Back View Red % Limit
+RED_THRESHOLD_CAM_3 = 70.0 # Front View Red % Limit
 
 # FIREBASE CONFIG
 FIREBASE_BASE_URL = "https://mpm-raiv-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -36,9 +43,9 @@ last_save_time = 0
 # GLOBAL FRAME BUFFER
 global_frames = [None, None, None, None]
 
-# Global Safe Scores for printing
+# Global Stats for printing
 current_safe_scores = {1: 0, 2: 0}
-current_red_scores = {1: 0, 2: 0} # Track red percentage
+current_red_scores = {1: 0.0, 2: 0.0} 
 
 if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
@@ -50,6 +57,7 @@ def network_worker():
         cmd = cmd_queue.get()
         if cmd is None: break
         try:
+            # Ultra-fast timeout
             requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.2)
         except: pass
         cmd_queue.task_done()
@@ -79,6 +87,10 @@ class CameraThread(threading.Thread):
         stop_trigger_count = 0
         cam_label = "BACK" if self.index == 1 else "FRONT"
         
+        # Determine specific thresholds for this camera
+        my_safe_limit = SAFE_SCORE_LIMIT_CAM_2 if self.index == 1 else SAFE_SCORE_LIMIT_CAM_3
+        my_red_limit = RED_THRESHOLD_CAM_2 if self.index == 1 else RED_THRESHOLD_CAM_3
+        
         while True:
             if not self.cap.isOpened():
                 time.sleep(2)
@@ -90,43 +102,52 @@ class CameraThread(threading.Thread):
                 time.sleep(0.01)
                 continue
 
-            # --- OBSTACLE DETECTION (RED COLOR LOGIC) ---
+            # --- OBSTACLE DETECTION ---
             if self.role == "DETECT":
-                # Convert to HSV
+                # 1. SAFE SCORE (Blur)
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                blur = cv2.Laplacian(gray, cv2.CV_64F).var()
+                current_safe_scores[self.index] = int(blur)
+
+                # 2. RED DETECTION (Color)
                 hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-                
-                # Define Red Range (Red wraps around 0/180)
-                # Lower Red
                 lower1 = np.array([0, 100, 100])
                 upper1 = np.array([10, 255, 255])
-                # Upper Red
                 lower2 = np.array([160, 100, 100])
                 upper2 = np.array([180, 255, 255])
+                mask = cv2.inRange(hsv, lower1, upper1) + cv2.inRange(hsv, lower2, upper2)
                 
-                # Create Masks
-                mask1 = cv2.inRange(hsv, lower1, upper1)
-                mask2 = cv2.inRange(hsv, lower2, upper2)
-                mask = mask1 + mask2
-                
-                # Calculate Percentage
                 total_pixels = 320 * 240
                 red_pixels = cv2.countNonZero(mask)
                 red_percentage = (red_pixels / total_pixels) * 100
-                
-                # Update global score for printing
                 current_red_scores[self.index] = red_percentage
 
-                # Logic: STOP IF RED > 70%
-                if red_percentage > RED_PERCENTAGE_THRESHOLD:
+                # --- STOP LOGIC ---
+                # Stop if:
+                # A. Red Percentage > Limit (Red Obstacle)
+                # B. Safe Score < Limit (Blurry/Blocked/Too Close)
+                
+                is_danger = False
+                reason = ""
+
+                if red_percentage > my_red_limit:
+                    is_danger = True
+                    reason = f"RED OBSTACLE ({red_percentage:.1f}% > {my_red_limit}%)"
+                elif blur < my_safe_limit:
+                    is_danger = True
+                    reason = f"LOW SAFE SCORE ({int(blur)} < {my_safe_limit})"
+
+                if is_danger:
                     stop_trigger_count += 1
                 else:
                     stop_trigger_count = 0
 
-                # Require 3 consecutive frames (Anti-Flicker)
+                # Fast Trigger: 3 frames (~100ms)
                 if stop_trigger_count > 3:
-                     print(f"\n[⛔ STOP] {cam_label} RED OBSTACLE DETECTED ({red_percentage:.1f}%) -> STOPPING VEHICLE")
+                     print(f"\n[⛔ STOP] {cam_label} CAM: {reason} -> STOPPING VEHICLE")
+                     # INSTANT SEND
                      cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
-                     stop_trigger_count = 2 
+                     stop_trigger_count = 2 # Keep it ready to trigger again
 
             # --- IMAGE CAPTURE ---
             elif self.role == "CAPTURE":
@@ -186,9 +207,8 @@ def firebase_monitor():
 def status_printer():
     print("--- STATUS PRINTER STARTED ---")
     while True:
-        time.sleep(2.0) 
-        # Print Red Percentages
-        print(f"🔴 RED OBSTACLE: [BACK CAM: {current_red_scores[1]:.1f}%] | [FRONT CAM: {current_red_scores[2]:.1f}%]")
+        time.sleep(1.0) # Print every 1 second
+        print(f"📊 STATUS | BACK (CAM 1): Score {current_safe_scores[1]} / Red {current_red_scores[1]:.1f}% | FRONT (CAM 2): Score {current_safe_scores[2]} / Red {current_red_scores[2]:.1f}%")
 
 # --- ROUTES ---
 @app.route('/')
