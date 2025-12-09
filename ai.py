@@ -10,14 +10,15 @@ import os
 import numpy as np
 from datetime import datetime
 import queue
+from ultralytics import YOLO # pip install ultralytics
 
 # --- CONFIGURATION ---
 CAM_INDICES = [0, 1, 2, 3] 
 PORT = 5000
 
-# SAFE SCORE THRESHOLDS
-SAFE_SCORE_CAM_2 = 300 # Back View
-SAFE_SCORE_CAM_3 = 500 # Front View
+# THRESHOLDS
+CONFIDENCE_THRESHOLD = 0.5 # 50% sure it's an object
+NEAR_THRESHOLD_AREA = 0.30 # Object must cover 30% of screen to be "Near" (Danger)
 
 # FIREBASE CONFIG
 FIREBASE_BASE_URL = "https://mpm-raiv-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -33,25 +34,27 @@ cmd_queue = queue.Queue()
 # --- GLOBAL STATE ---
 vehicle_status = "STANDBY" 
 last_save_time = 0
-
-# GLOBAL FRAME BUFFER
 global_frames = [None, None, None, None]
 
-# Global Safe Scores
-current_safe_scores = {1: 0, 2: 0}
+# AI MODEL
+print("--- LOADING AI MODEL (YOLOv8n) ---")
+# This will auto-download 'yolov8n.pt' on first run (small, fast model)
+model = YOLO("yolov8n.pt") 
+print("--- AI MODEL READY ---")
 
 if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
     except: pass
 
-# --- HIGH PRIORITY NETWORK WORKER ---
+# --- NETWORK WORKER (NON-BLOCKING) ---
 def network_worker():
     while True:
         cmd = cmd_queue.get()
         if cmd is None: break
         try:
-            # Ultra-fast timeout. We don't print "SENT" anymore.
-            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.2)
+            # Fast timeout, fire and forget
+            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.5)
+            # print(f"📡 CMD SENT: {cmd}") 
         except: pass
         cmd_queue.task_done()
 
@@ -70,19 +73,14 @@ class CameraThread(threading.Thread):
         
         if self.cap.isOpened():
             self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-            # 320x240 is standard for high speed analysis
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-            # 20 FPS is smooth enough for video but saves CPU
-            self.cap.set(cv2.CAP_PROP_FPS, 20)
+            self.cap.set(cv2.CAP_PROP_FPS, 30)
     
     def run(self):
-        global global_frames, last_save_time, current_safe_scores
-        obstruction_counter = 0
+        global global_frames, last_save_time
         
-        # Set specific threshold based on camera index
-        my_threshold = SAFE_SCORE_CAM_2 if self.index == 1 else SAFE_SCORE_CAM_3
-        cam_label = "Back" if self.index == 1 else "Front"
+        stop_trigger_count = 0
         
         while True:
             if not self.cap.isOpened():
@@ -95,35 +93,44 @@ class CameraThread(threading.Thread):
                 time.sleep(0.1)
                 continue
 
-            # --- OBSTACLE DETECTION (NO DRAWING) ---
+            # --- AI OBSTACLE DETECTION ---
             if self.role == "DETECT":
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                # Run Inference (Stream=True makes it faster)
+                # classes=[0, 2, 3, 5, 7] -> person, car, motorcycle, bus, train, truck
+                # We limit classes to speed up and avoid false positives like "potted plant"
+                results = model(frame, stream=True, verbose=False, conf=CONFIDENCE_THRESHOLD, classes=[0, 1, 2, 3, 5, 6, 7])
                 
-                # 1. Blur Check
-                blur = cv2.Laplacian(gray, cv2.CV_64F).var()
+                danger_detected = False
                 
-                # Update global score for printing
-                current_safe_scores[self.index] = int(blur)
-
-                # 2. Large Object Check (Contour Area)
-                _, thresh = cv2.threshold(gray, 60, 255, cv2.THRESH_BINARY_INV)
-                contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                for r in results:
+                    boxes = r.boxes
+                    for box in boxes:
+                        # Bounding Box
+                        x1, y1, x2, y2 = box.xyxy[0]
+                        
+                        # Calculate Area Coverage
+                        box_w = x2 - x1
+                        box_h = y2 - y1
+                        box_area = box_w * box_h
+                        total_area = 320 * 240
+                        coverage = box_area / total_area
+                        
+                        # Logic: If object is confident AND covers significant area (is near)
+                        if coverage > NEAR_THRESHOLD_AREA:
+                            danger_detected = True
+                            # No drawing on frame as requested, just logic
+                            break 
                 
-                has_large_obstacle = False
-                for cnt in contours:
-                    if cv2.contourArea(cnt) > 30000:
-                        has_large_obstacle = True
-                        break
-
-                # CHECK AGAINST THRESHOLD
-                if (blur < my_threshold) or has_large_obstacle:
-                    obstruction_counter += 1
+                if danger_detected:
+                    stop_trigger_count += 1
                 else:
-                    obstruction_counter = 0
-
-                # Trigger Stop
-                if obstruction_counter > 2:
-                    print(f"\n[⛔ STOP] {cam_label} cam obstruction stopped the vehicle")
+                    stop_trigger_count = 0
+                
+                # TRIGGER STOP (Immediate)
+                # Threshold of 2 frames (approx 60-100ms verification)
+                if stop_trigger_count >= 2:
+                    cam_name = "BACK" if self.index == 1 else "FRONT"
+                    print(f"🚨 DANGER! {cam_name} CAM DETECTED OBSTACLE -> SENDING STOP")
                     cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
 
             # --- IMAGE CAPTURE ---
@@ -135,15 +142,13 @@ class CameraThread(threading.Thread):
                             last_save_time = now
                             self.save_img(frame)
 
-            # --- ENCODE & UPDATE BUFFER (PURE VIDEO) ---
+            # --- ENCODE ---
             try:
-                # Quality 30 is fast
                 ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
                 if ret:
                     global_frames[self.index] = buffer.tobytes()
             except: pass
             
-            # Tiny sleep to yield CPU
             time.sleep(0.001)
 
     def save_img(self, frame):
@@ -159,21 +164,19 @@ roles = ["CAPTURE", "DETECT", "DETECT", "CAPTURE"]
 for i in range(4):
     CameraThread(i, roles[i]).start()
 
-# --- STREAM GENERATOR (Non-Blocking) ---
+# --- STREAM GENERATOR ---
 def gen(cam_idx):
     while True:
         frame = global_frames[cam_idx]
         if frame:
             yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-            # 20 FPS cap for streaming (matches capture)
-            time.sleep(0.05) 
+            time.sleep(0.04) 
         else:
             time.sleep(0.1)
 
 # --- MONITOR ---
 def firebase_monitor():
     global vehicle_status
-    # print("--- FIREBASE MONITOR STARTED ---")
     while True:
         try:
             r = requests.get(TELEMETRY_ENDPOINT, timeout=1)
@@ -184,16 +187,9 @@ def firebase_monitor():
             time.sleep(1.0) 
         except: time.sleep(2.0)
 
-# --- STATUS PRINTER ---
-def status_printer():
-    print("--- STATUS PRINTER STARTED ---")
-    while True:
-        time.sleep(2.0) 
-        print(f"📊 STATUS: [CAM 1 (BACK) Safe Score: {current_safe_scores[1]}] | [CAM 2 (FRONT) Safe Score: {current_safe_scores[2]}]")
-
 # --- ROUTES ---
 @app.route('/')
-def index(): return "RAIV VISION SYSTEM ONLINE (HEADLESS MODE)"
+def index(): return "RAIV AI VISION SYSTEM ONLINE"
 
 @app.route('/video1')
 def video_feed1(): return Response(gen(0), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -208,7 +204,6 @@ def video_feed4(): return Response(gen(3), mimetype='multipart/x-mixed-replace; 
 def start_tunnel():
     print("--- WAITING FOR FLASK ---")
     time.sleep(3)
-    
     print("--- STARTING TUNNEL ---")
     cmd = ['cloudflared', 'tunnel', '--url', f'http://127.0.0.1:{PORT}']
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
@@ -233,10 +228,6 @@ if __name__ == '__main__':
     t_fb = threading.Thread(target=firebase_monitor)
     t_fb.daemon = True
     t_fb.start()
-    
-    t_print = threading.Thread(target=status_printer)
-    t_print.daemon = True
-    t_print.start()
 
-    print(f"--- SYSTEM ACTIVE (LOGGING ONLY) ---")
+    print(f"--- SYSTEM ACTIVE (YOLOv8 AI MODE) ---")
     app.run(host='0.0.0.0', port=PORT, threaded=True)
