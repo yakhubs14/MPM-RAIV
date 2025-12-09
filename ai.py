@@ -16,12 +16,18 @@ CAM_INDICES = [0, 1, 2, 3]
 PORT = 5000
 
 # 1. SAFE SCORE THRESHOLDS (Blur/Sharpness)
+# Lower = Blurry/Blocked. If below this, STOP.
 SAFE_SCORE_LIMIT_CAM_2 = 500  # Back View Limit
 SAFE_SCORE_LIMIT_CAM_3 = 1000 # Front View Limit
 
 # 2. RED OBSTACLE THRESHOLDS (Color Area %)
+# Higher = More Red. If above this, STOP.
 RED_THRESHOLD_CAM_2 = 70.0 # Back View Red % Limit
 RED_THRESHOLD_CAM_3 = 70.0 # Front View Red % Limit
+
+# 3. BRIGHTNESS THRESHOLD
+# Lower = Darker. If below this (e.g. covered camera), STOP.
+BRIGHTNESS_THRESHOLD = 50.0 
 
 # FIREBASE CONFIG
 FIREBASE_BASE_URL = "https://mpm-raiv-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -43,6 +49,7 @@ last_save_time = 0
 global_frames = [None, None, None, None]
 current_safe_scores = {1: 0, 2: 0}
 current_red_scores = {1: 0.0, 2: 0.0} 
+current_brightness_scores = {1: 0.0, 2: 0.0}
 
 if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
@@ -78,7 +85,7 @@ class CameraThread(threading.Thread):
             self.cap.set(cv2.CAP_PROP_FPS, 30)
     
     def run(self):
-        global global_frames, last_save_time, current_safe_scores, current_red_scores
+        global global_frames, last_save_time, current_safe_scores, current_red_scores, current_brightness_scores
         global stop_signal_sent_for_current_move
         
         stop_trigger_count = 0
@@ -100,10 +107,13 @@ class CameraThread(threading.Thread):
 
             # --- OBSTACLE DETECTION ---
             if self.role == "DETECT":
-                # 1. SAFE SCORE
+                # 1. SAFE SCORE & BRIGHTNESS
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 blur = cv2.Laplacian(gray, cv2.CV_64F).var()
+                mean_brightness = np.mean(gray)
+                
                 current_safe_scores[self.index] = int(blur)
+                current_brightness_scores[self.index] = mean_brightness
 
                 # 2. RED DETECTION
                 hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -114,7 +124,18 @@ class CameraThread(threading.Thread):
                 current_red_scores[self.index] = red_pct
 
                 # --- STOP LOGIC (SMART) ---
-                is_danger = (red_pct > my_red_limit) or (blur < my_safe_limit)
+                is_danger = False
+                reason = ""
+
+                if red_pct > my_red_limit:
+                    is_danger = True
+                    reason = f"RED {red_pct:.1f}%"
+                elif blur < my_safe_limit:
+                    is_danger = True
+                    reason = f"SCORE {int(blur)}"
+                elif mean_brightness < BRIGHTNESS_THRESHOLD:
+                    is_danger = True
+                    reason = f"DARK {int(mean_brightness)}"
 
                 if is_danger:
                     stop_trigger_count += 1
@@ -122,11 +143,6 @@ class CameraThread(threading.Thread):
                     stop_trigger_count = 0
 
                 # Check if we should stop
-                # 1. Must be persistent (3 frames)
-                # 2. Must NOT have sent stop already for this move
-                # 3. Must match direction:
-                #    - Front Cam (Index 2) stops only if FWD
-                #    - Back Cam (Index 1) stops only if BWD
                 if stop_trigger_count > 3:
                     should_stop = False
                     
@@ -137,7 +153,6 @@ class CameraThread(threading.Thread):
                             should_stop = True
                     
                     if should_stop:
-                        reason = f"RED {red_pct:.1f}%" if red_pct > my_red_limit else f"SCORE {int(blur)}"
                         print(f"\n[⛔ STOP] {cam_label} CAM OBSTACLE ({reason}) -> STOPPING")
                         
                         cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
@@ -201,7 +216,6 @@ def firebase_monitor():
                     # RESET LATCH ON NEW MOVE
                     if vehicle_status == "MOVING" and last_known_status != "MOVING":
                         stop_signal_sent_for_current_move = False
-                        # print("--- NEW MOVE STARTED: MONITORING FOR OBSTACLES ---")
                     
                     last_known_status = vehicle_status
 
@@ -209,7 +223,6 @@ def firebase_monitor():
             r_cmd = requests.get(COMMAND_ENDPOINT, timeout=1)
             if r_cmd.status_code == 200:
                 cmd = r_cmd.json()
-                # Determine direction from command string
                 if cmd and isinstance(cmd, str):
                     if "FWD" in cmd or "FORWARD" in cmd:
                         vehicle_direction = "FWD"
@@ -224,7 +237,7 @@ def status_printer():
     print("--- STATUS PRINTER STARTED ---")
     while True:
         time.sleep(1.0) 
-        print(f"📊 STATUS [{vehicle_direction}] | BACK (CAM 1): Score {current_safe_scores[1]} / Red {current_red_scores[1]:.1f}% | FRONT (CAM 2): Score {current_safe_scores[2]} / Red {current_red_scores[2]:.1f}%")
+        print(f"📊 STATUS [{vehicle_direction}] | BACK (CAM 1): Score {current_safe_scores[1]} / Red {current_red_scores[1]:.1f}% / Bright {current_brightness_scores[1]:.0f} | FRONT (CAM 2): Score {current_safe_scores[2]} / Red {current_red_scores[2]:.1f}% / Bright {current_brightness_scores[2]:.0f}")
 
 # --- ROUTES ---
 @app.route('/')
