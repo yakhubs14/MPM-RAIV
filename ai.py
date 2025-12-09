@@ -42,8 +42,8 @@ cmd_queue = queue.Queue()
 
 # --- GLOBAL STATE ---
 vehicle_status = "STANDBY" 
-vehicle_direction = "UNKNOWN" # Tracks FWD or BWD
-stop_signal_sent_for_current_move = False # Latch for one-time stop
+vehicle_direction = "UNKNOWN" 
+stop_signal_sent_for_current_move = False 
 
 last_save_time = 0
 global_frames = [None, None, None, None]
@@ -51,17 +51,38 @@ current_safe_scores = {1: 0, 2: 0}
 current_red_scores = {1: 0.0, 2: 0.0} 
 current_brightness_scores = {1: 0.0, 2: 0.0}
 
+# PERSISTENT SESSION FOR SPEED
+# Reusing the session avoids SSL handshake overhead for every request
+fb_session = requests.Session()
+
 if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
     except: pass
 
-# --- NETWORK WORKER ---
+# --- EMERGENCY SENDER (Bypasses Queue) ---
+def send_emergency_stop_now():
+    def _task():
+        # Send 3 rapid-fire stop commands to ensure delivery
+        for _ in range(3):
+            try:
+                cmd = f"STOP_EMERGENCY_{int(time.time()*1000)}" # Millisecond timestamp
+                # Use the persistent session
+                fb_session.put(COMMAND_ENDPOINT, json=cmd, timeout=1.0)
+                # print(f"🚀 EMERGENCY STOP SENT: {cmd}")
+            except: pass
+            time.sleep(0.05) # 50ms gap
+    
+    # Launch immediately in a separate thread
+    threading.Thread(target=_task).start()
+
+# --- STANDARD NETWORK WORKER ---
 def network_worker():
     while True:
         cmd = cmd_queue.get()
         if cmd is None: break
         try:
-            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.2)
+            # Use persistent session
+            fb_session.put(COMMAND_ENDPOINT, json=cmd, timeout=0.5)
         except: pass
         cmd_queue.task_done()
 
@@ -123,7 +144,7 @@ class CameraThread(threading.Thread):
                 red_pct = (cv2.countNonZero(mask) / (320 * 240)) * 100
                 current_red_scores[self.index] = red_pct
 
-                # --- STOP LOGIC (SMART) ---
+                # --- STOP LOGIC ---
                 is_danger = False
                 reason = ""
 
@@ -146,18 +167,22 @@ class CameraThread(threading.Thread):
                 if stop_trigger_count > 3:
                     should_stop = False
                     
+                    # Logic: Only stop if we haven't already sent a stop for this specific move action
+                    # AND if the direction matches the camera view
                     if not stop_signal_sent_for_current_move:
-                        if self.index == 2 and vehicle_direction == "FWD": # Front Cam & Moving Forward
+                        if self.index == 2 and vehicle_direction == "FWD": 
                             should_stop = True
-                        elif self.index == 1 and vehicle_direction == "BWD": # Back Cam & Moving Backward
+                        elif self.index == 1 and vehicle_direction == "BWD": 
                             should_stop = True
                     
                     if should_stop:
                         print(f"\n[⛔ STOP] {cam_label} CAM OBSTACLE ({reason}) -> STOPPING")
                         
-                        cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
-                        stop_signal_sent_for_current_move = True # Latch: Won't send again until new move
-                        stop_trigger_count = 0 # Reset counter
+                        # USE EMERGENCY SENDER (Instant)
+                        send_emergency_stop_now()
+                        
+                        stop_signal_sent_for_current_move = True 
+                        stop_trigger_count = 0 
 
             # --- IMAGE CAPTURE ---
             elif self.role == "CAPTURE":
@@ -206,8 +231,8 @@ def firebase_monitor():
     
     while True:
         try:
-            # 1. Get Status (MOVING/STANDBY)
-            r_tel = requests.get(TELEMETRY_ENDPOINT, timeout=1)
+            # Reusing session for speed
+            r_tel = fb_session.get(TELEMETRY_ENDPOINT, timeout=1)
             if r_tel.status_code == 200:
                 data = r_tel.json()
                 if data and "status" in data:
@@ -219,8 +244,7 @@ def firebase_monitor():
                     
                     last_known_status = vehicle_status
 
-            # 2. Get Command (To determine Direction)
-            r_cmd = requests.get(COMMAND_ENDPOINT, timeout=1)
+            r_cmd = fb_session.get(COMMAND_ENDPOINT, timeout=1)
             if r_cmd.status_code == 200:
                 cmd = r_cmd.json()
                 if cmd and isinstance(cmd, str):
