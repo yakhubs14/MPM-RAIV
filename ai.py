@@ -16,9 +16,11 @@ from ultralytics import YOLO # pip install ultralytics
 CAM_INDICES = [0, 1, 2, 3] 
 PORT = 5000
 
-# THRESHOLDS
-CONFIDENCE_THRESHOLD = 0.5 # 50% sure it's an object
-NEAR_THRESHOLD_AREA = 0.30 # Object must cover 30% of screen to be "Near" (Danger)
+# UNIFIED THRESHOLDS
+# Both cameras now share the same sensitivity
+SAFE_SCORE_THRESHOLD = 400 
+CONFIDENCE_THRESHOLD = 0.45 # Lowered slightly to catch more objects
+NEAR_THRESHOLD_AREA = 0.25  # Object covers 25% of screen = STOP
 
 # FIREBASE CONFIG
 FIREBASE_BASE_URL = "https://mpm-raiv-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -36,11 +38,12 @@ vehicle_status = "STANDBY"
 last_save_time = 0
 global_frames = [None, None, None, None]
 
-# AI MODEL
-print("--- LOADING AI MODEL (YOLOv8n) ---")
-# This will auto-download 'yolov8n.pt' on first run (small, fast model)
-model = YOLO("yolov8n.pt") 
-print("--- AI MODEL READY ---")
+# AI MODEL - UPGRADED TO YOLOv8 SMALL
+print("--- LOADING ADVANCED AI MODEL (YOLOv8s) ---")
+# 'yolov8s.pt' is more accurate than 'n' but requires more CPU.
+# It is a Deep Learning CNN trained on COCO dataset.
+model = YOLO("yolov8s.pt") 
+print("--- DEEP LEARNING MODEL READY ---")
 
 if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
@@ -54,7 +57,6 @@ def network_worker():
         try:
             # Fast timeout, fire and forget
             requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.5)
-            # print(f"📡 CMD SENT: {cmd}") 
         except: pass
         cmd_queue.task_done()
 
@@ -93,44 +95,54 @@ class CameraThread(threading.Thread):
                 time.sleep(0.1)
                 continue
 
-            # --- AI OBSTACLE DETECTION ---
+            # --- AI OBSTACLE DETECTION (ADVANCED) ---
             if self.role == "DETECT":
-                # Run Inference (Stream=True makes it faster)
-                # classes=[0, 2, 3, 5, 7] -> person, car, motorcycle, bus, train, truck
-                # We limit classes to speed up and avoid false positives like "potted plant"
-                results = model(frame, stream=True, verbose=False, conf=CONFIDENCE_THRESHOLD, classes=[0, 1, 2, 3, 5, 6, 7])
+                # Run Inference
+                # Stream=True for performance
+                # Specific classes for RAILWAY context:
+                # 0:person, 1:bicycle, 2:car, 3:motorcycle, 5:bus, 6:train, 7:truck, 
+                # 16:dog, 17:horse, 18:sheep, 19:cow (Animals on track)
+                results = model(frame, stream=True, verbose=False, conf=CONFIDENCE_THRESHOLD, 
+                                classes=[0, 1, 2, 3, 5, 6, 7, 16, 17, 18, 19])
                 
                 danger_detected = False
                 
-                for r in results:
-                    boxes = r.boxes
-                    for box in boxes:
-                        # Bounding Box
-                        x1, y1, x2, y2 = box.xyxy[0]
-                        
-                        # Calculate Area Coverage
-                        box_w = x2 - x1
-                        box_h = y2 - y1
-                        box_area = box_w * box_h
-                        total_area = 320 * 240
-                        coverage = box_area / total_area
-                        
-                        # Logic: If object is confident AND covers significant area (is near)
-                        if coverage > NEAR_THRESHOLD_AREA:
-                            danger_detected = True
-                            # No drawing on frame as requested, just logic
-                            break 
+                # Check for physical obstruction (Blur/Covered)
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
+                mean_brightness = np.mean(gray)
+                
+                # Condition A: Camera is covered or blind
+                if blur_score < SAFE_SCORE_THRESHOLD or mean_brightness < 10:
+                    danger_detected = True
+                
+                # Condition B: AI Detected Object
+                if not danger_detected:
+                    for r in results:
+                        boxes = r.boxes
+                        for box in boxes:
+                            # Calculate Area Coverage
+                            x1, y1, x2, y2 = box.xyxy[0]
+                            box_area = (x2 - x1) * (y2 - y1)
+                            total_area = 320 * 240
+                            coverage = box_area / total_area
+                            
+                            # Logic: If valid object covers > 25% of screen
+                            if coverage > NEAR_THRESHOLD_AREA:
+                                danger_detected = True
+                                break 
+                        if danger_detected: break
                 
                 if danger_detected:
                     stop_trigger_count += 1
                 else:
                     stop_trigger_count = 0
                 
-                # TRIGGER STOP (Immediate)
-                # Threshold of 2 frames (approx 60-100ms verification)
+                # TRIGGER STOP (Immediate & Robust)
+                # 2 consecutive frames = ~66ms reaction time
                 if stop_trigger_count >= 2:
                     cam_name = "BACK" if self.index == 1 else "FRONT"
-                    print(f"🚨 DANGER! {cam_name} CAM DETECTED OBSTACLE -> SENDING STOP")
+                    print(f"🚨 DANGER! {cam_name} CAM DETECTED THREAT -> SENDING STOP")
                     cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
 
             # --- IMAGE CAPTURE ---
@@ -229,5 +241,5 @@ if __name__ == '__main__':
     t_fb.daemon = True
     t_fb.start()
 
-    print(f"--- SYSTEM ACTIVE (YOLOv8 AI MODE) ---")
+    print(f"--- SYSTEM ACTIVE (YOLOv8 SMALL MODE) ---")
     app.run(host='0.0.0.0', port=PORT, threaded=True)
