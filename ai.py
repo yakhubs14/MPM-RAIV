@@ -10,17 +10,25 @@ import os
 import numpy as np
 from datetime import datetime
 import queue
-from ultralytics import YOLO # pip install ultralytics
+from ultralytics import YOLO 
 
 # --- CONFIGURATION ---
 CAM_INDICES = [0, 1, 2, 3] 
 PORT = 5000
 
-# UNIFIED THRESHOLDS
-# Both cameras now share the same sensitivity
-SAFE_SCORE_THRESHOLD = 400 
-CONFIDENCE_THRESHOLD = 0.45 # Lowered slightly to catch more objects
-NEAR_THRESHOLD_AREA = 0.25  # Object covers 25% of screen = STOP
+# ROBUST DETECTION SETTINGS
+# 1. AI Thresholds
+AI_CONFIDENCE = 0.60       # Only trust detections > 60% confidence
+AI_NEAR_AREA_RATIO = 0.35  # Object must cover 35% of screen (Very Close)
+
+# 2. Physical Obstruction Thresholds (Covered Camera)
+BLUR_THRESHOLD = 150       # Lower = Blurry. <150 is very blurry.
+DARKNESS_THRESHOLD = 5     # Lower = Darker. <5 is pitch black.
+
+# 3. Persistence (The "Anti-Ghost" Filter)
+# Must detect danger for this many consecutive frames to stop.
+# At 15 AI-FPS, 4 frames = ~0.25 seconds of continuous detection.
+DANGER_PERSISTENCE_LIMIT = 4 
 
 # FIREBASE CONFIG
 FIREBASE_BASE_URL = "https://mpm-raiv-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -38,12 +46,11 @@ vehicle_status = "STANDBY"
 last_save_time = 0
 global_frames = [None, None, None, None]
 
-# AI MODEL - UPGRADED TO YOLOv8 SMALL
-print("--- LOADING ADVANCED AI MODEL (YOLOv8s) ---")
-# 'yolov8s.pt' is more accurate than 'n' but requires more CPU.
-# It is a Deep Learning CNN trained on COCO dataset.
-model = YOLO("yolov8s.pt") 
-print("--- DEEP LEARNING MODEL READY ---")
+# AI MODEL - OPTIMIZED FOR SPEED & LOGIC
+print("--- LOADING HIGH-SPEED AI MODEL (YOLOv8n) ---")
+# Using Nano for max FPS, but relying on robust logic for accuracy.
+model = YOLO("yolov8n.pt") 
+print("--- AI ENGINE READY ---")
 
 if not os.path.exists(SAVE_DIR):
     try: os.makedirs(SAVE_DIR)
@@ -55,8 +62,7 @@ def network_worker():
         cmd = cmd_queue.get()
         if cmd is None: break
         try:
-            # Fast timeout, fire and forget
-            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.5)
+            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.2)
         except: pass
         cmd_queue.task_done()
 
@@ -77,12 +83,14 @@ class CameraThread(threading.Thread):
             self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-            self.cap.set(cv2.CAP_PROP_FPS, 30)
+            self.cap.set(cv2.CAP_PROP_FPS, 60) # Request Max FPS
     
     def run(self):
         global global_frames, last_save_time
         
-        stop_trigger_count = 0
+        # Persistence Counters
+        danger_counter = 0
+        frame_count = 0
         
         while True:
             if not self.cap.isOpened():
@@ -92,58 +100,57 @@ class CameraThread(threading.Thread):
             
             success, frame = self.cap.read()
             if not success:
-                time.sleep(0.1)
+                time.sleep(0.01)
                 continue
 
-            # --- AI OBSTACLE DETECTION (ADVANCED) ---
-            if self.role == "DETECT":
-                # Run Inference
-                # Stream=True for performance
-                # Specific classes for RAILWAY context:
-                # 0:person, 1:bicycle, 2:car, 3:motorcycle, 5:bus, 6:train, 7:truck, 
-                # 16:dog, 17:horse, 18:sheep, 19:cow (Animals on track)
-                results = model(frame, stream=True, verbose=False, conf=CONFIDENCE_THRESHOLD, 
-                                classes=[0, 1, 2, 3, 5, 6, 7, 16, 17, 18, 19])
+            frame_count += 1
+
+            # --- SMART AI DETECTION (Every 3rd Frame for Speed) ---
+            # We process AI less often than we stream video.
+            # This keeps the video "Butter Smooth" even if AI takes 50ms.
+            if self.role == "DETECT" and (frame_count % 3 == 0):
                 
-                danger_detected = False
+                is_danger = False
                 
-                # Check for physical obstruction (Blur/Covered)
+                # A. Physical Check (Is camera covered?)
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
-                mean_brightness = np.mean(gray)
+                mean_b = np.mean(gray)
                 
-                # Condition A: Camera is covered or blind
-                if blur_score < SAFE_SCORE_THRESHOLD or mean_brightness < 10:
-                    danger_detected = True
-                
-                # Condition B: AI Detected Object
-                if not danger_detected:
+                if mean_b < DARKNESS_THRESHOLD:
+                    is_danger = True # Covered with hand (Black)
+                else:
+                    # B. AI Object Check (Is there a train/person?)
+                    # Classes: 0=person, 1=bike, 2=car, 3=motorcycle, 5=bus, 6=train, 7=truck
+                    results = model(frame, stream=True, verbose=False, conf=AI_CONFIDENCE, 
+                                    classes=[0, 1, 2, 3, 5, 6, 7])
+                    
                     for r in results:
                         boxes = r.boxes
                         for box in boxes:
-                            # Calculate Area Coverage
                             x1, y1, x2, y2 = box.xyxy[0]
-                            box_area = (x2 - x1) * (y2 - y1)
-                            total_area = 320 * 240
-                            coverage = box_area / total_area
+                            area = (x2 - x1) * (y2 - y1)
+                            coverage = area / (320 * 240)
                             
-                            # Logic: If valid object covers > 25% of screen
-                            if coverage > NEAR_THRESHOLD_AREA:
-                                danger_detected = True
-                                break 
-                        if danger_detected: break
+                            # Only stop if object is LARGE (Near)
+                            if coverage > AI_NEAR_AREA_RATIO:
+                                is_danger = True
+                                break
+                        if is_danger: break
                 
-                if danger_detected:
-                    stop_trigger_count += 1
+                # Persistence Filter
+                if is_danger:
+                    danger_counter += 1
                 else:
-                    stop_trigger_count = 0
-                
-                # TRIGGER STOP (Immediate & Robust)
-                # 2 consecutive frames = ~66ms reaction time
-                if stop_trigger_count >= 2:
+                    # Decay counter slowly instead of instant reset (debouncing)
+                    if danger_counter > 0: danger_counter -= 1
+
+                # TRIGGER
+                if danger_counter >= DANGER_PERSISTENCE_LIMIT:
                     cam_name = "BACK" if self.index == 1 else "FRONT"
-                    print(f"🚨 DANGER! {cam_name} CAM DETECTED THREAT -> SENDING STOP")
+                    print(f"🚨 [CRITICAL] {cam_name} CAM: OBSTACLE CONFIRMED -> STOPPING")
                     cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
+                    # Reset slightly to avoid spamming 100 commands a second
+                    danger_counter = DANGER_PERSISTENCE_LIMIT - 1 
 
             # --- IMAGE CAPTURE ---
             elif self.role == "CAPTURE":
@@ -154,13 +161,16 @@ class CameraThread(threading.Thread):
                             last_save_time = now
                             self.save_img(frame)
 
-            # --- ENCODE ---
+            # --- ENCODE & UPDATE BUFFER (PURE VIDEO) ---
+            # We encode EVERY frame for the stream, regardless of AI logic
             try:
-                ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
+                # Quality 40 is a good balance for 320p
+                ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 40])
                 if ret:
                     global_frames[self.index] = buffer.tobytes()
             except: pass
             
+            # Tiny yield
             time.sleep(0.001)
 
     def save_img(self, frame):
@@ -176,13 +186,14 @@ roles = ["CAPTURE", "DETECT", "DETECT", "CAPTURE"]
 for i in range(4):
     CameraThread(i, roles[i]).start()
 
-# --- STREAM GENERATOR ---
+# --- STREAM GENERATOR (Zero-Wait) ---
 def gen(cam_idx):
     while True:
         frame = global_frames[cam_idx]
         if frame:
             yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-            time.sleep(0.04) 
+            # 30 FPS Target for Stream (0.033s)
+            time.sleep(0.033) 
         else:
             time.sleep(0.1)
 
@@ -201,7 +212,7 @@ def firebase_monitor():
 
 # --- ROUTES ---
 @app.route('/')
-def index(): return "RAIV AI VISION SYSTEM ONLINE"
+def index(): return "RAIV AI VISION SYSTEM ONLINE (V11.0)"
 
 @app.route('/video1')
 def video_feed1(): return Response(gen(0), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -241,5 +252,5 @@ if __name__ == '__main__':
     t_fb.daemon = True
     t_fb.start()
 
-    print(f"--- SYSTEM ACTIVE (YOLOv8 SMALL MODE) ---")
+    print(f"--- SYSTEM ACTIVE (HIGH PERF / AI MODE) ---")
     app.run(host='0.0.0.0', port=PORT, threaded=True)
