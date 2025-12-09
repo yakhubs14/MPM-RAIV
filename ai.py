@@ -16,12 +16,10 @@ CAM_INDICES = [0, 1, 2, 3]
 PORT = 5000
 
 # 1. SAFE SCORE THRESHOLDS (Blur/Sharpness)
-# Lower = Blurry/Blocked. If below this, STOP.
 SAFE_SCORE_LIMIT_CAM_2 = 500  # Back View Limit
 SAFE_SCORE_LIMIT_CAM_3 = 1000 # Front View Limit
 
 # 2. RED OBSTACLE THRESHOLDS (Color Area %)
-# Higher = More Red. If above this, STOP.
 RED_THRESHOLD_CAM_2 = 70.0 # Back View Red % Limit
 RED_THRESHOLD_CAM_3 = 70.0 # Front View Red % Limit
 
@@ -38,12 +36,11 @@ cmd_queue = queue.Queue()
 
 # --- GLOBAL STATE ---
 vehicle_status = "STANDBY" 
+vehicle_direction = "UNKNOWN" # Tracks FWD or BWD
+stop_signal_sent_for_current_move = False # Latch for one-time stop
+
 last_save_time = 0
-
-# GLOBAL FRAME BUFFER
 global_frames = [None, None, None, None]
-
-# Global Stats for printing
 current_safe_scores = {1: 0, 2: 0}
 current_red_scores = {1: 0.0, 2: 0.0} 
 
@@ -57,8 +54,7 @@ def network_worker():
         cmd = cmd_queue.get()
         if cmd is None: break
         try:
-            # Ultra-fast timeout (0.1s) for instant fire-and-forget
-            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.1)
+            requests.put(COMMAND_ENDPOINT, json=cmd, timeout=0.2)
         except: pass
         cmd_queue.task_done()
 
@@ -83,16 +79,13 @@ class CameraThread(threading.Thread):
     
     def run(self):
         global global_frames, last_save_time, current_safe_scores, current_red_scores
+        global stop_signal_sent_for_current_move
         
         stop_trigger_count = 0
         cam_label = "BACK" if self.index == 1 else "FRONT"
         
-        # Determine specific thresholds for this camera
         my_safe_limit = SAFE_SCORE_LIMIT_CAM_2 if self.index == 1 else SAFE_SCORE_LIMIT_CAM_3
         my_red_limit = RED_THRESHOLD_CAM_2 if self.index == 1 else RED_THRESHOLD_CAM_3
-        
-        # State tracking to avoid spamming
-        is_currently_stopped = False
         
         while True:
             if not self.cap.isOpened():
@@ -107,55 +100,49 @@ class CameraThread(threading.Thread):
 
             # --- OBSTACLE DETECTION ---
             if self.role == "DETECT":
-                # 1. SAFE SCORE (Blur)
+                # 1. SAFE SCORE
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 blur = cv2.Laplacian(gray, cv2.CV_64F).var()
                 current_safe_scores[self.index] = int(blur)
 
-                # 2. RED DETECTION (Color)
+                # 2. RED DETECTION
                 hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-                lower1 = np.array([0, 100, 100])
-                upper1 = np.array([10, 255, 255])
-                lower2 = np.array([160, 100, 100])
-                upper2 = np.array([180, 255, 255])
+                lower1 = np.array([0, 100, 100]); upper1 = np.array([10, 255, 255])
+                lower2 = np.array([160, 100, 100]); upper2 = np.array([180, 255, 255])
                 mask = cv2.inRange(hsv, lower1, upper1) + cv2.inRange(hsv, lower2, upper2)
-                
-                total_pixels = 320 * 240
-                red_pixels = cv2.countNonZero(mask)
-                red_percentage = (red_pixels / total_pixels) * 100
-                current_red_scores[self.index] = red_percentage
+                red_pct = (cv2.countNonZero(mask) / (320 * 240)) * 100
+                current_red_scores[self.index] = red_pct
 
-                # --- STOP LOGIC ---
-                is_danger = False
-                reason = ""
-
-                if red_percentage > my_red_limit:
-                    is_danger = True
-                    reason = f"RED OBSTACLE ({red_percentage:.1f}% > {my_red_limit}%)"
-                elif blur < my_safe_limit:
-                    is_danger = True
-                    reason = f"LOW SAFE SCORE ({int(blur)} < {my_safe_limit})"
+                # --- STOP LOGIC (SMART) ---
+                is_danger = (red_pct > my_red_limit) or (blur < my_safe_limit)
 
                 if is_danger:
                     stop_trigger_count += 1
                 else:
                     stop_trigger_count = 0
-                    is_currently_stopped = False # Reset state immediately when clear
 
-                # Fast Trigger: 3 frames (~100ms)
+                # Check if we should stop
+                # 1. Must be persistent (3 frames)
+                # 2. Must NOT have sent stop already for this move
+                # 3. Must match direction:
+                #    - Front Cam (Index 2) stops only if FWD
+                #    - Back Cam (Index 1) stops only if BWD
                 if stop_trigger_count > 3:
-                     # Only print/send if we haven't already locked it down recently 
-                     # OR if we want to ensure it stays stopped (send every ~30 frames?)
-                     # Here we send continuously but check state to avoid console spam
-                     if not is_currently_stopped:
-                         print(f"\n[⛔ STOP] {cam_label} CAM: {reason} -> STOPPING VEHICLE")
-                         is_currently_stopped = True
-                     
-                     # INSTANT SEND (Always send while danger exists to ensure vehicle doesn't move)
-                     cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
-                     
-                     # Cap counter to prevent overflow but keep > 3
-                     stop_trigger_count = 4 
+                    should_stop = False
+                    
+                    if not stop_signal_sent_for_current_move:
+                        if self.index == 2 and vehicle_direction == "FWD": # Front Cam & Moving Forward
+                            should_stop = True
+                        elif self.index == 1 and vehicle_direction == "BWD": # Back Cam & Moving Backward
+                            should_stop = True
+                    
+                    if should_stop:
+                        reason = f"RED {red_pct:.1f}%" if red_pct > my_red_limit else f"SCORE {int(blur)}"
+                        print(f"\n[⛔ STOP] {cam_label} CAM OBSTACLE ({reason}) -> STOPPING")
+                        
+                        cmd_queue.put(f"STOP_EMERGENCY_{int(time.time())}")
+                        stop_signal_sent_for_current_move = True # Latch: Won't send again until new move
+                        stop_trigger_count = 0 # Reset counter
 
             # --- IMAGE CAPTURE ---
             elif self.role == "CAPTURE":
@@ -169,8 +156,7 @@ class CameraThread(threading.Thread):
             # --- ENCODE ---
             try:
                 ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 35])
-                if ret:
-                    global_frames[self.index] = buffer.tobytes()
+                if ret: global_frames[self.index] = buffer.tobytes()
             except: pass
             
             time.sleep(0.001)
@@ -183,7 +169,6 @@ class CameraThread(threading.Thread):
         except: pass
 
 # Start Camera Threads
-# 0=Right(REC), 1=Back(DETECT), 2=Front(DETECT), 3=Left(REC)
 roles = ["CAPTURE", "DETECT", "DETECT", "CAPTURE"]
 for i in range(4):
     CameraThread(i, roles[i]).start()
@@ -198,25 +183,48 @@ def gen(cam_idx):
         else:
             time.sleep(0.1)
 
-# --- MONITOR ---
+# --- MONITOR (Status & Direction) ---
 def firebase_monitor():
-    global vehicle_status
+    global vehicle_status, vehicle_direction, stop_signal_sent_for_current_move
+    
+    last_known_status = "STANDBY"
+    
     while True:
         try:
-            r = requests.get(TELEMETRY_ENDPOINT, timeout=1)
-            if r.status_code == 200:
-                data = r.json()
+            # 1. Get Status (MOVING/STANDBY)
+            r_tel = requests.get(TELEMETRY_ENDPOINT, timeout=1)
+            if r_tel.status_code == 200:
+                data = r_tel.json()
                 if data and "status" in data:
                     vehicle_status = data["status"]
-            time.sleep(1.0) 
-        except: time.sleep(2.0)
+                    
+                    # RESET LATCH ON NEW MOVE
+                    if vehicle_status == "MOVING" and last_known_status != "MOVING":
+                        stop_signal_sent_for_current_move = False
+                        # print("--- NEW MOVE STARTED: MONITORING FOR OBSTACLES ---")
+                    
+                    last_known_status = vehicle_status
+
+            # 2. Get Command (To determine Direction)
+            r_cmd = requests.get(COMMAND_ENDPOINT, timeout=1)
+            if r_cmd.status_code == 200:
+                cmd = r_cmd.json()
+                # Determine direction from command string
+                if cmd and isinstance(cmd, str):
+                    if "FWD" in cmd or "FORWARD" in cmd:
+                        vehicle_direction = "FWD"
+                    elif "BWD" in cmd or "BACKWARD" in cmd:
+                        vehicle_direction = "BWD"
+            
+            time.sleep(0.5) 
+        except: time.sleep(1.0)
 
 # --- STATUS PRINTER ---
 def status_printer():
     print("--- STATUS PRINTER STARTED ---")
     while True:
-        time.sleep(1.0) # Print every 1 second
-        print(f"📊 STATUS | BACK (CAM 1): Score {current_safe_scores[1]} / Red {current_red_scores[1]:.1f}% | FRONT (CAM 2): Score {current_safe_scores[2]} / Red {current_red_scores[2]:.1f}%")
+        time.sleep(1.0) 
+        print(f"📊 STATUS [{vehicle_direction}] | BACK (CAM 1): Score {current_safe_scores[1]} / Red {current_red_scores[1]:.1f}% | FRONT (CAM 2): Score {current_safe_scores[2]} / Red {current_red_scores[2]:.1f}%")
 
 # --- ROUTES ---
 @app.route('/')
